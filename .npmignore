@@ -1,0 +1,14 @@
+src/
+scripts/
+.github/
+*.ts
+!*.d.ts
+tsconfig.json
+.env
+.env.*
+*.log
+coverage/
+test/
+__tests__/
+.vscode/
+*.tgz

@@ -1,0 +1,80 @@
+{
+  "name": "pm-cli",
+  "version": "1.0.0",
+  "description": "Universal AI Terminal CLI — Ollama, Groq, OpenRouter, Google, Kimi, MiniMax, DeepSeek in one terminal",
+  "main": "dist/index.js",
+  "bin": {
+    "pm": "./dist/index.js"
+  },
+  "files": [
+    "dist/",
+    "README.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "scripts": {
+    "build": "tsc && node scripts/fix-shebang.js",
+    "dev": "ts-node src/index.ts",
+    "clean": "rimraf dist",
+    "prepublishOnly": "npm run clean && npm run build",
+    "version:patch": "npm version patch",
+    "version:minor": "npm version minor",
+    "version:major": "npm version major"
+  },
+  "dependencies": {
+    "adm-zip": "^0.5.10",
+    "axios": "^1.6.0",
+    "chalk": "^4.1.2",
+    "commander": "^11.1.0",
+    "conf": "^10.2.0",
+    "form-data": "^4.0.0",
+    "glob": "^10.5.0",
+    "inquirer": "^8.2.6",
+    "mammoth": "^1.6.0",
+    "marked": "^9.1.6",
+    "marked-terminal": "^6.1.0",
+    "mime-types": "^2.1.35",
+    "node-fetch": "^2.7.0",
+    "ora": "^5.4.1",
+    "pdf-parse": "^1.1.1",
+    "xlsx": "^0.18.5"
+  },
+  "devDependencies": {
+    "@types/adm-zip": "^0.5.5",
+    "@types/inquirer": "^8.2.10",
+    "@types/mime-types": "^2.1.4",
+    "@types/node": "^20.0.0",
+    "@types/node-fetch": "^2.6.9",
+    "@types/pdf-parse": "^1.1.4",
+    "rimraf": "^5.0.0",
+    "ts-node": "^10.9.0",
+    "typescript": "^5.3.0"
+  },
+  "keywords": [
+    "ai",
+    "cli",
+    "terminal",
+    "ollama",
+    "groq",
+    "openrouter",
+    "gemini",
+    "kimi",
+    "minimax",
+    "deepseek",
+    "chatgpt",
+    "llm",
+    "chat"
+  ],
+  "author": "PM CLI Contributors",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/justforstories1998-eng/pm-cli"
+  },
+  "homepage": "https://github.com/justforstories1998-eng/pm-cli#readme",
+  "bugs": {
+    "url": "https://github.com/justforstories1998-eng/pm-cli/issues"
+  }
+}
