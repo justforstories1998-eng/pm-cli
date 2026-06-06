@@ -11,7 +11,7 @@
 ## Install
 
 ```bash
-npm install -g pm-cli
+npm install -g pm-ai-cli
 That's it. One command. Then:
 
 Bash
