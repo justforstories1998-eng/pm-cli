@@ -52,7 +52,54 @@ pm config set minimax-key xxx
 pm config set deepseek-key sk-xxx
 pm config setup                       # full interactive wizard
 Slash Commands (in chat)
-text
+
+# One shot message
+pm -p openrouter "Hello world"
+
+# Specific model
+pm -p openrouter -m "deepseek/deepseek-r1:free" "Explain quantum computing"
+
+# Interactive chat
+pm -p openrouter
+
+# Set as default provider
+pm config set provider openrouter
+pm config set model "deepseek/deepseek-r1:free"
+
+# Now just type
+pm "Hello"
+
+# ─── OpenRouter — set key ONCE ──────────────────────────
+pm config set openrouter-key sk-or-v1-xxx
+pm -p openrouter "Hello"          # works forever no key prompt
+
+# ─── Quick model switch ──────────────────────────────────
+pm                                 # start chat
+/orm                               # opens model switcher
+# ↑↓ to browse, type to filter, Enter to select
+
+# ─── File reading ────────────────────────────────────────
+/read src/index.ts                 # show file in terminal
+/preview src/index.ts 30           # show first 30 lines
+/readask src/config.ts "what does this do?"
+/askfiles src/index.ts src/config.ts -- "explain this code"
+
+# ─── File editing ────────────────────────────────────────
+/write hello.txt "Hello World"     # create a file
+/append notes.txt "new line"       # add to file
+/replace config.ts "old" "new"     # find and replace
+/delete temp.txt                   # delete (with backup)
+/mkdir src/newfeature              # create directory
+
+# ─── AI assisted editing ─────────────────────────────────
+/aiedit src/index.ts "add error handling to the main function"
+/savereply src/index.ts            # save AI response to file
+
+# ─── Search ──────────────────────────────────────────────
+/ls                                # list current directory
+/tree src                          # show src folder tree
+/search "TODO" src                 # find TODOs in src/
+/search "import" .                 # find all imports
 
 /                   open interactive menu
 /help               show all commands
@@ -115,9 +162,34 @@ npm install
 npm run build
 npm login
 npm publish
-Step 4 — That's it. Anyone can now run:
-Bash
+Step 4 — That's it.
 
-npm install -g pm-cli
-pm config setup
-pm "Hello world"
+# ─── Just type naturally — no /read needed ─────────────
+pm
+> fix history.ts file
+# AI automatically reads history.ts, fixes it, offers to save
+
+> fix everything
+# AI reads all project files, fixes all errors, offers to save
+
+> explain what config.ts does
+# AI automatically reads config.ts and explains it
+
+> update the system prompt in config.ts to be more helpful
+# AI reads config.ts, makes change, asks to apply
+
+# ─── OpenRouter — seamless ─────────────────────────────
+pm or                          # opens OpenRouter chat immediately
+pm or deepseek/deepseek-r1:free # specific model, starts chat
+pm -p openrouter               # same thing
+
+# Inside chat — switch models without leaving
+/orm                           # opens visual model switcher
+/orm deepseek/deepseek-r1:free # switch directly by name
+
+# ─── Provider shortcuts ─────────────────────────────────
+pm groq "hello"                # chat with groq
+pm deepseek "explain Docker"   # chat with deepseek
+pm kimi "write a poem"         # chat with kimi
+pm ollama                      # chat with local ollama
+pm or                          # chat with openrouter

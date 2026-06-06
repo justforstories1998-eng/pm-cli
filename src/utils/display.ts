@@ -147,40 +147,54 @@ export function printThickDivider(): void {
 export function printHelp(): void {
   const w = BOX_WIDTH;
   const line = (label: string, desc: string) => {
-    const full = `  ${label.padEnd(22)} ${desc}`;
-    console.log(
-      C.red("║") + padRight(C.whiteDim(full), w) + C.red("║")
-    );
+    const full = `  ${label.padEnd(26)} ${desc}`;
+    console.log(C.red("║") + padRight(C.whiteDim(full), w) + C.red("║"));
   };
   const header = (title: string) => {
-    console.log(
-      C.red("║") + padRight(C.red(`  ── ${title}`), w) + C.red("║")
-    );
+    console.log(C.red("║") + padRight(C.red(`  ── ${title}`), w) + C.red("║"));
   };
+
   console.log(C.red("╔══ HELP " + "═".repeat(w - 8) + "╗"));
-  header("Slash Commands");
-  line("/", "Open interactive menu");
-  line("/help  /h", "Show this help");
-  line("/model <name>", "Switch model");
-  line("/clear /c", "Clear conversation history");
-  line("/system <prompt>", "Update system prompt");
-  line("/save [file]", "Save conversation to file");
-  line("/tokens", "Show token usage stats");
-  line("/retry", "Retry last message");
-  line("/models", "List all available models");
-  line("/paste-image", "Paste image from clipboard");
-  line("/upload <path>", "Upload a file (image/pdf/docx/xlsx/zip/...)");
-  line("/exit /quit /q", "Exit the CLI");
-  header("File Uploads");
-  line("Images", ".jpg .png .gif .webp .bmp .svg");
-  line("Documents", ".pdf .docx .txt .md .csv");
-  line("Spreadsheets", ".xlsx .xls .ods");
-  line("Archives", ".zip (shows file listing)");
-  line("Code files", ".js .ts .py .go .rs .java + more");
-  header("Keyboard");
-  line("/ + Enter", "Open menu");
-  line("Ctrl+C", "Exit");
-  line("Esc", "Clear input buffer");
+
+  header("Chat");
+  line("/help  /h",          "Show this help");
+  line("/clear /c",          "Clear conversation history");
+  line("/system <prompt>",   "Update system prompt");
+  line("/tokens",            "Show token usage stats");
+  line("/retry",             "Retry last message");
+  line("/save [file]",       "Save conversation to file");
+  line("/exit /quit /q",     "Exit the CLI");
+
+  header("Model Switching");
+  line("/model <name>",      "Switch model (provider:model)");
+  line("/ormodel  /orm",     "Quick OpenRouter model switcher");
+  line("/models",            "List all available models");
+
+  header("File Reading");
+  line("/read <file>",       "Read and display a file");
+  line("/preview <file>",    "Preview first 50 lines");
+  line("/readask <f> <q>",   "Read file and ask AI about it");
+  line("/askfiles f... -- q","Send multiple files to AI");
+  line("/ls [dir]",          "List directory contents");
+  line("/tree [dir]",        "Show directory tree");
+  line("/search <q> [dir]",  "Search text in project files");
+
+  header("File Editing");
+  line("/write <file> <txt>","Create or overwrite a file");
+  line("/append <file> <txt>","Append content to a file");
+  line("/replace <f> <a> <b>","Find and replace in file");
+  line("/editlines <f> <s> <e> <txt>", "Edit specific lines");
+  line("/delete <file>",     "Delete a file (with backup)");
+  line("/mkdir <dir>",       "Create a directory");
+
+  header("AI File Editing");
+  line("/aiedit <file> <ins>","Ask AI to edit a file");
+  line("/savereply [file]",  "Save last AI response to file");
+
+  header("Attachments");
+  line("/upload <path>",     "Upload file to AI");
+  line("/paste-image",       "Paste image from clipboard");
+
   console.log(C.red("╚" + "═".repeat(w) + "╝"));
   console.log();
 }

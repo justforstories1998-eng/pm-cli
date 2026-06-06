@@ -4,45 +4,106 @@ import { printCleanBanner } from "./utils/display";
 import { startChat } from "./commands/chat";
 import { listModels, pullModel, showOllamaStatus } from "./commands/models";
 import { showConfig, setConfigValue, interactiveSetup } from "./commands/config";
-
-const pkg = {
-  name: "pm-cli",
-  version: "1.0.0",
-  description: "Universal AI Terminal CLI — All Models, All Providers",
-};
+import { getConfig, setLastOpenRouterModel, setOpenRouterKey, hasOpenRouterKey } from "./config";
 
 const program = new Command();
 
 program
   .name("pm")
-  .description(pkg.description)
-  .version(pkg.version, "-v, --version", "Output the current version");
+  .description("Universal AI Terminal CLI — All Models, All Providers")
+  .version("1.0.0", "-v, --version");
 
-// ─── Default command: pm [message] ───────────────────────────────────────────
+// ─── pm [message] ─────────────────────────────────────────────────────────────
 program
-  .argument("[message]", "Message to send (one-shot mode if provided)")
-  .option("-p, --provider <provider>", "AI provider (ollama/groq/openrouter/google/kimi/minimax/deepseek)")
-  .option("-m, --model <model>", "Model name (e.g. groq:mixtral or just mixtral)")
-  .option("-s, --system <prompt>", "System prompt for this session")
-  .action(async (message?: string, opts?: { provider?: string; model?: string; system?: string }) => {
-    printCleanBanner();
-    await startChat(message, opts || {});
-  });
-
-// ─── pm chat ─────────────────────────────────────────────────────────────────
-program
-  .command("chat [message]")
-  .alias("c")
-  .description("Start interactive chat or send one-shot message")
+  .argument("[message]", "Message to send")
   .option("-p, --provider <provider>", "AI provider")
   .option("-m, --model <model>", "Model name")
   .option("-s, --system <prompt>", "System prompt")
-  .action(async (message?: string, opts?: { provider?: string; model?: string; system?: string }) => {
+  .action(
+    async (
+      message?: string,
+      opts?: { provider?: string; model?: string; system?: string }
+    ) => {
+      printCleanBanner();
+      await startChat(message, opts || {});
+    }
+  );
+
+// ─── pm chat ──────────────────────────────────────────────────────────────────
+program
+  .command("chat [message]")
+  .alias("c")
+  .description("Start interactive chat")
+  .option("-p, --provider <provider>", "AI provider")
+  .option("-m, --model <model>", "Model name")
+  .option("-s, --system <prompt>", "System prompt")
+  .action(
+    async (
+      message?: string,
+      opts?: { provider?: string; model?: string; system?: string }
+    ) => {
+      printCleanBanner();
+      await startChat(message, opts || {});
+    }
+  );
+
+// ─── pm or [model] — OpenRouter shortcut ─────────────────────────────────────
+program
+  .command("or [model]")
+  .description("Quick OpenRouter chat — pm or deepseek/deepseek-r1:free")
+  .option("-s, --system <prompt>", "System prompt")
+  .action(async (model?: string, opts?: { system?: string }) => {
     printCleanBanner();
-    await startChat(message, opts || {});
+    const cfg = getConfig();
+    const chosenModel = model || cfg.lastOpenRouterModel || "deepseek/deepseek-r1:free";
+    await startChat(undefined, {
+      provider: "openrouter",
+      model: chosenModel,
+      system: opts?.system,
+    });
   });
 
-// ─── pm models ───────────────────────────────────────────────────────────────
+// ─── pm groq ──────────────────────────────────────────────────────────────────
+program
+  .command("groq [message]")
+  .description("Chat with Groq")
+  .option("-m, --model <model>", "Groq model")
+  .action(async (message?: string, opts?: { model?: string }) => {
+    printCleanBanner();
+    await startChat(message, { provider: "groq", model: opts?.model });
+  });
+
+// ─── pm deepseek ──────────────────────────────────────────────────────────────
+program
+  .command("deepseek [message]")
+  .description("Chat with DeepSeek")
+  .option("-m, --model <model>", "DeepSeek model")
+  .action(async (message?: string, opts?: { model?: string }) => {
+    printCleanBanner();
+    await startChat(message, { provider: "deepseek", model: opts?.model || "deepseek-chat" });
+  });
+
+// ─── pm kimi ──────────────────────────────────────────────────────────────────
+program
+  .command("kimi [message]")
+  .description("Chat with Kimi")
+  .action(async (message?: string) => {
+    printCleanBanner();
+    await startChat(message, { provider: "kimi", model: "kimi-k2-preview" });
+  });
+
+// ─── pm ollama ────────────────────────────────────────────────────────────────
+program
+  .command("ollama [message]")
+  .alias("ol")
+  .description("Chat with local Ollama model")
+  .option("-m, --model <model>", "Ollama model name")
+  .action(async (message?: string, opts?: { model?: string }) => {
+    printCleanBanner();
+    await startChat(message, { provider: "ollama", model: opts?.model });
+  });
+
+// ─── pm models ────────────────────────────────────────────────────────────────
 program
   .command("models [filter]")
   .alias("m")
@@ -52,7 +113,7 @@ program
     await listModels(filter);
   });
 
-// ─── pm pull ─────────────────────────────────────────────────────────────────
+// ─── pm pull ──────────────────────────────────────────────────────────────────
 program
   .command("pull <model>")
   .description("Pull an Ollama model")
@@ -61,23 +122,21 @@ program
     await pullModel(model);
   });
 
-// ─── pm status ───────────────────────────────────────────────────────────────
+// ─── pm status ────────────────────────────────────────────────────────────────
 program
   .command("status")
-  .description("Check provider status and Ollama models")
+  .description("Check provider status")
   .action(async () => {
     printCleanBanner();
     await showOllamaStatus();
   });
 
-// ─── pm config ───────────────────────────────────────────────────────────────
-const configCmd = program
-  .command("config")
-  .description("Manage configuration");
+// ─── pm config ────────────────────────────────────────────────────────────────
+const configCmd = program.command("config").description("Manage configuration");
 
 configCmd
   .command("show")
-  .description("Show current configuration")
+  .description("Show current config")
   .action(async () => {
     printCleanBanner();
     await showConfig();
@@ -98,7 +157,6 @@ configCmd
     await interactiveSetup();
   });
 
-// ─── Parse ────────────────────────────────────────────────────────────────────
 program.parseAsync(process.argv).catch((err) => {
   const { printError } = require("./utils/display");
   printError(err instanceof Error ? err.message : String(err));

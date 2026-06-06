@@ -1,10 +1,22 @@
 import readline from "readline";
 import fs from "fs";
 import path from "path";
-import { getConfig, setConfig } from "../config";
+import inquirer from "inquirer";
+import {
+  getConfig,
+  setConfig,
+  hasOpenRouterKey,
+  setOpenRouterKey,
+  setLastOpenRouterModel,
+  getLastOpenRouterModel,
+} from "../config";
 import { ConversationHistory } from "../utils/history";
 import { SmartInput } from "../utils/input";
-import { InteractiveMenu, ModelPickerMenu, ProviderPickerMenu } from "../utils/menu";
+import {
+  InteractiveMenu,
+  ModelPickerMenu,
+  ProviderPickerMenu,
+} from "../utils/menu";
 import type { Provider } from "../utils/menu";
 import { streamChat, parseModelString } from "../models/index";
 import {
@@ -19,9 +31,9 @@ import {
   printInfo,
   printWarning,
   printHelp,
-  printModelList,
   printGoodbye,
   printFileInfo,
+  C,
 } from "../utils/display";
 import { listModels } from "./models";
 import { showConfig } from "./config";
@@ -33,7 +45,32 @@ import {
   getClipboardImage,
   formatBytes,
 } from "../utils/filehandler";
-import { getAllModels } from "../models/index";
+import {
+  readFile,
+  writeFile,
+  appendToFile,
+  deleteFile,
+  listDirectory,
+  searchInFiles,
+  createDirectory,
+  previewFile,
+  findAndReplace,
+  editLines,
+  buildFileContext,
+  formatSize,
+} from "../utils/fileworker";
+import {
+  needsFileAccess,
+  buildSmartContext,
+  applyAIFixes,
+  buildAgentSystemPrompt,
+  wantsFullProjectScan,
+  detectSpecificFiles,
+  findFileInProject,
+  getAllProjectFiles,
+} from "../utils/agent";
+import { OpenRouterModelSwitcher } from "../utils/openrouterquickswitch";
+import chalk from "chalk";
 
 export interface ChatOptions {
   provider?: string;
@@ -41,6 +78,38 @@ export interface ChatOptions {
   system?: string;
 }
 
+// ─── Ensure OpenRouter key — ask ONCE, never again ────────────────────────────
+async function ensureOpenRouterKey(): Promise<boolean> {
+  if (hasOpenRouterKey()) return true;
+
+  console.log();
+  printInfo("OpenRouter key not set.");
+  printInfo("Get a FREE key at: openrouter.ai → Sign in → API Keys");
+  console.log();
+
+  const { key } = await inquirer.prompt([
+    {
+      type: "password",
+      name: "key",
+      message: "Paste your OpenRouter API key:",
+      mask: "*",
+    },
+  ]);
+
+  if (key && key.trim().length > 0) {
+    setOpenRouterKey(key.trim());
+    printSuccess("Key saved permanently! You will never need to enter it again.");
+    console.log();
+    return true;
+  }
+
+  printError(
+    "No key entered.\nRun: pm config set openrouter-key sk-or-v1-xxx"
+  );
+  return false;
+}
+
+// ─── Main chat entry point ────────────────────────────────────────────────────
 export async function startChat(
   initialMessage?: string,
   options: ChatOptions = {}
@@ -52,26 +121,35 @@ export async function startChat(
   ) as Provider;
   let currentModel = options.model || cfg.defaultModel;
 
-  // Parse provider:model from options.model
   if (options.model) {
     const parsed = parseModelString(options.model, currentProvider);
     currentProvider = parsed.provider;
     currentModel = parsed.model;
   }
 
-  const systemPrompt = options.system || cfg.systemPrompt;
+  // OpenRouter — ensure key once, restore last model
+  if (currentProvider === "openrouter") {
+    const ok = await ensureOpenRouterKey();
+    if (!ok) return;
+    if (!options.model) currentModel = getLastOpenRouterModel();
+  }
+
+  // Build system prompt with agent capabilities
+  const systemPrompt = options.system || buildAgentSystemPrompt();
   const history = new ConversationHistory(systemPrompt, cfg.historySize);
 
   let lastUserMessage: string | null = null;
   let pendingFiles: ProcessedFile[] = [];
+  let agentMode = true; // always on — AI automatically reads files when needed
+  const workingDir = process.cwd();
 
-  // ─── One-shot mode ──────────────────────────────────────────────────────────
+  // ─── One-shot mode ──────────────────────────────────────────────────────
   if (initialMessage) {
-    await sendMessage(initialMessage, [], currentProvider, currentModel, history);
+    await processMessage(initialMessage);
     return;
   }
 
-  // ─── Interactive mode ────────────────────────────────────────────────────────
+  // ─── Interactive mode ───────────────────────────────────────────────────
   printHeader(currentProvider, currentModel);
 
   const rl = readline.createInterface({
@@ -80,32 +158,72 @@ export async function startChat(
     terminal: false,
   });
 
-  let running = true;
+  // ─── PROCESS MESSAGE — smart routing ─────────────────────────────────────
+  async function processMessage(message: string): Promise<void> {
+    let finalMessage = message;
+    let filesRead: string[] = [];
+    let isAutoRead = false;
 
-  async function sendMessage(
-    text: string,
-    files: ProcessedFile[],
-    provider: Provider,
-    model: string,
-    hist: ConversationHistory
-  ): Promise<void> {
-    const { text: fullText, images } = buildMessageWithFiles(text, files);
-    lastUserMessage = fullText;
+    // Auto-detect if files need to be read
+    if (agentMode && needsFileAccess(message)) {
+      try {
+        const { context, filesFound, isFullScan } = await buildSmartContext(
+          message,
+          workingDir
+        );
 
-    printUserMessage(text, files.length > 0);
+        if (filesFound.length > 0) {
+          filesRead = filesFound;
+          isAutoRead = true;
 
-    if (files.length > 0) {
+          if (isFullScan) {
+            printInfo(
+              `Reading ${filesFound.length} project files and analyzing…`
+            );
+          } else {
+            printInfo(
+              `Auto-reading: ${filesFound
+                .map((f) => path.relative(workingDir, f))
+                .join(", ")}`
+            );
+          }
+
+          // Prepend file context to message
+          finalMessage = `${context}\n\n---\n\nUser request: ${message}`;
+        }
+      } catch (err) {
+        // If file reading fails just send message normally
+      }
+    }
+
+    lastUserMessage = message; // store original without context
+
+    printUserMessage(message, pendingFiles.length > 0);
+
+    if (pendingFiles.length > 0) {
       printFileInfo(
-        files.map((f) => ({ name: f.name, type: f.type, size: f.size }))
+        pendingFiles.map((f) => ({ name: f.name, type: f.type, size: f.size }))
       );
     }
 
-    hist.addMessage("user", fullText);
+    history.addMessage("user", finalMessage);
 
     try {
-      printStreamHeader(model);
+      printStreamHeader(currentModel);
       let fullResponse = "";
-      const stream = streamChat(provider, model, hist.getMessages(), images.length > 0 ? images : undefined);
+
+      const { text: fullText, images } = buildMessageWithFiles(
+        finalMessage,
+        pendingFiles
+      );
+      pendingFiles = [];
+
+      const stream = streamChat(
+        currentProvider,
+        currentModel,
+        history.getMessages(),
+        images.length > 0 ? images : undefined
+      );
 
       for await (const chunk of stream) {
         printStreamChunk(chunk);
@@ -114,31 +232,118 @@ export async function startChat(
       printStreamEnd();
 
       if (fullResponse) {
-        hist.addMessage("assistant", fullResponse);
+        history.addMessage("assistant", fullResponse);
+
+        // Auto-apply fixes if files were read
+        if (
+          isAutoRead &&
+          filesRead.length > 0 &&
+          (wantsFullProjectScan(message) ||
+            message.toLowerCase().includes("fix") ||
+            message.toLowerCase().includes("edit") ||
+            message.toLowerCase().includes("update") ||
+            message.toLowerCase().includes("refactor") ||
+            message.toLowerCase().includes("repair"))
+        ) {
+          await offerToApplyFixes(fullResponse, filesRead);
+        }
       }
     } catch (err) {
       printStreamEnd();
-      const msg = err instanceof Error ? err.message : String(err);
-      printError(msg);
+      printError(err instanceof Error ? err.message : String(err));
     }
   }
 
+  // ─── Offer to apply AI fixes ────────────────────────────────────────────
+  async function offerToApplyFixes(
+    aiResponse: string,
+    originalFiles: string[]
+  ): Promise<void> {
+    console.log();
+    printInfo("AI has provided code fixes. Apply them automatically?");
+    console.log(
+      C.red("  ╔═ APPLY FIXES ══════════════════════════════════╗")
+    );
+    console.log(
+      C.red("  ║") +
+        C.whiteDim("  Press Y to apply fixes automatically           ") +
+        C.red("║")
+    );
+    console.log(
+      C.red("  ║") +
+        C.whiteDim("  Press N to skip (copy manually from above)     ") +
+        C.red("║")
+    );
+    console.log(C.red("  ╚═════════════════════════════════════════════════╝"));
+    console.log();
+
+    // Temporarily detach raw mode for this prompt
+    if (process.stdin.isTTY) {
+      try {
+        process.stdin.setRawMode(false);
+      } catch (_) {}
+    }
+
+    const { apply } = await inquirer.prompt([
+      {
+        type: "confirm",
+        name: "apply",
+        message: "Apply AI fixes to files?",
+        default: true,
+      },
+    ]);
+
+    if (apply) {
+      printInfo("Applying fixes…");
+      const { applied, skipped } = await applyAIFixes(
+        aiResponse,
+        originalFiles,
+        workingDir
+      );
+
+      if (applied.length > 0) {
+        printSuccess(`Fixed and saved: ${applied.join(", ")}`);
+        printInfo("Backups created for all modified files.");
+      }
+      if (skipped.length > 0) {
+        printWarning(`Could not apply to: ${skipped.join(", ")}`);
+        printInfo("Copy the code manually from above.");
+      }
+      if (applied.length === 0 && skipped.length === 0) {
+        printInfo(
+          "No code blocks found to apply. Copy the code manually from above."
+        );
+      }
+    }
+
+    console.log();
+  }
+
+  // ─── SLASH COMMANDS ──────────────────────────────────────────────────────
   async function handleSlashCommand(cmd: string): Promise<"exit" | void> {
-    const parts = cmd.slice(1).trim().split(/\s+/);
-    const command = parts[0].toLowerCase();
-    const args = parts.slice(1);
+    const trimmed = cmd.slice(1).trim();
+    const firstSpace = trimmed.indexOf(" ");
+    const command =
+      firstSpace === -1
+        ? trimmed.toLowerCase()
+        : trimmed.slice(0, firstSpace).toLowerCase();
+    const rest = firstSpace === -1 ? "" : trimmed.slice(firstSpace + 1).trim();
+    const args = rest.split(/\s+/).filter(Boolean);
 
     switch (command) {
+      // ── Exit ────────────────────────────────────────────────────────────
       case "exit":
       case "quit":
       case "q":
         return "exit";
 
+      // ── Help ────────────────────────────────────────────────────────────
       case "help":
       case "h":
         printHelp();
         break;
 
+      // ── Clear ───────────────────────────────────────────────────────────
       case "clear":
       case "c":
         console.clear();
@@ -147,28 +352,100 @@ export async function startChat(
         printHeader(currentProvider, currentModel);
         break;
 
-      case "model":
-        if (args.length === 0) {
-          printInfo(`Current model: ${currentProvider}:${currentModel}`);
+      // ── OpenRouter model switcher ────────────────────────────────────────
+      case "ormodel":
+      case "orm":
+      case "or": {
+        if (currentProvider !== "openrouter") {
+          currentProvider = "openrouter";
+          const ok = await ensureOpenRouterKey();
+          if (!ok) { currentProvider = cfg.defaultProvider as Provider; break; }
+        }
+
+        // If model name provided directly — switch immediately
+        if (rest) {
+          const modelName = rest.includes(":free")
+            ? rest
+            : rest.includes("/")
+            ? rest
+            : rest;
+          currentModel = modelName;
+          setLastOpenRouterModel(modelName);
+          printSuccess(`Switched to OpenRouter model: ${modelName}`);
+          printHeader(currentProvider, currentModel);
         } else {
-          const parsed = parseModelString(args.join(" "), currentProvider);
+          // Open visual model switcher
+          const switcher = new OpenRouterModelSwitcher(currentModel);
+          const chosen = await switcher.show();
+          if (chosen) {
+            currentModel = chosen;
+            setLastOpenRouterModel(chosen);
+            printSuccess(`Switched to: ${chosen}`);
+            printHeader(currentProvider, currentModel);
+          }
+        }
+        break;
+      }
+
+      // ── Switch model ─────────────────────────────────────────────────────
+      case "model":
+      case "m": {
+        if (!rest) {
+          printInfo(`Provider: ${currentProvider}`);
+          printInfo(`Model: ${currentModel}`);
+        } else if (rest.startsWith("openrouter:") || rest.includes("/")) {
+          // OpenRouter model — switch provider too
+          currentProvider = "openrouter";
+          const ok = await ensureOpenRouterKey();
+          if (!ok) break;
+          currentModel = rest.replace("openrouter:", "");
+          setLastOpenRouterModel(currentModel);
+          printSuccess(`OpenRouter → ${currentModel}`);
+          printHeader(currentProvider, currentModel);
+        } else {
+          const parsed = parseModelString(rest, currentProvider);
           currentProvider = parsed.provider;
           currentModel = parsed.model;
+          if (currentProvider === "openrouter") {
+            setLastOpenRouterModel(currentModel);
+            const ok = await ensureOpenRouterKey();
+            if (!ok) break;
+          }
           printSuccess(`Switched to: ${currentProvider}:${currentModel}`);
           printHeader(currentProvider, currentModel);
         }
         break;
+      }
 
-      case "system":
-        if (args.length === 0) {
-          printInfo(`Current system prompt: ${history.getSystemPrompt()}`);
+      // ── Provider switch ──────────────────────────────────────────────────
+      case "provider":
+      case "p": {
+        if (!rest) {
+          printInfo(`Current provider: ${currentProvider}`);
         } else {
-          const newPrompt = args.join(" ");
-          history.updateSystemPrompt(newPrompt);
+          currentProvider = rest as Provider;
+          if (currentProvider === "openrouter") {
+            const ok = await ensureOpenRouterKey();
+            if (!ok) { currentProvider = cfg.defaultProvider as Provider; break; }
+            currentModel = getLastOpenRouterModel();
+          }
+          printSuccess(`Provider → ${currentProvider}`);
+          printHeader(currentProvider, currentModel);
+        }
+        break;
+      }
+
+      // ── System prompt ────────────────────────────────────────────────────
+      case "system":
+        if (!rest) {
+          printInfo(`System prompt: ${history.getSystemPrompt().slice(0, 100)}…`);
+        } else {
+          history.updateSystemPrompt(rest);
           printSuccess("System prompt updated.");
         }
         break;
 
+      // ── Tokens ──────────────────────────────────────────────────────────
       case "tokens": {
         const stats = history.getStats();
         printInfo(
@@ -177,99 +454,282 @@ export async function startChat(
         break;
       }
 
+      // ── Save ─────────────────────────────────────────────────────────────
       case "save": {
-        const filename = args[0] || `pm-chat-${Date.now()}.txt`;
+        const filename = rest || `pm-chat-${Date.now()}.txt`;
         try {
           fs.writeFileSync(path.resolve(filename), history.toText(), "utf8");
-          printSuccess(`Conversation saved to: ${filename}`);
+          printSuccess(`Saved: ${filename}`);
         } catch (err) {
           printError(
-            `Could not save file: ${err instanceof Error ? err.message : String(err)}`
+            `Save failed: ${err instanceof Error ? err.message : String(err)}`
           );
         }
         break;
       }
 
+      // ── Models list ──────────────────────────────────────────────────────
       case "models":
         await listModels();
         break;
 
+      // ── Retry ────────────────────────────────────────────────────────────
       case "retry":
         if (lastUserMessage) {
-          await sendMessage(lastUserMessage, [], currentProvider, currentModel, history);
+          await processMessage(lastUserMessage);
         } else {
           printWarning("No previous message to retry.");
         }
         break;
 
-      case "upload": {
-        const filePath = args.join(" ");
-        if (!filePath) {
-          printError("Usage: /upload <file-path>");
-          break;
-        }
+      // ── Toggle agent mode ────────────────────────────────────────────────
+      case "agent": {
+        agentMode = !agentMode;
+        printSuccess(
+          `Agent mode ${agentMode ? "ON — AI will auto-read files" : "OFF — manual mode"}`
+        );
+        break;
+      }
+
+      // ── Read file (manual) ───────────────────────────────────────────────
+      case "read":
+      case "cat": {
+        if (!rest) { printError("Usage: /read <file>"); break; }
         try {
-          printInfo(`Processing file: ${filePath}…`);
-          const processed = await processFile(filePath);
-          pendingFiles.push(processed);
-          printSuccess(
-            `File ready: ${processed.name} (${processed.type}, ${formatBytes(processed.size)}). Send your next message to include it.`
-          );
+          const result = readFile(rest);
+          if (!result.exists) {
+            // Try to find in project
+            const found = findFileInProject(rest, workingDir);
+            if (found) {
+              const r = readFile(found);
+              printInfo(`${path.relative(workingDir, found)} — ${r.lines} lines`);
+              console.log();
+              console.log(r.content);
+              console.log();
+            } else {
+              printError(`File not found: ${rest}`);
+            }
+          } else {
+            printInfo(`${result.path} — ${result.lines} lines`);
+            console.log();
+            console.log(result.content);
+            console.log();
+          }
         } catch (err) {
-          printError(
-            `Failed to process file: ${err instanceof Error ? err.message : String(err)}`
-          );
+          printError(err instanceof Error ? err.message : String(err));
         }
         break;
       }
 
-      case "paste-image": {
-        printInfo("Checking clipboard for image…");
-        try {
-          const img = await getClipboardImage();
-          if (img) {
-            // Convert to ProcessedFile shape
-            pendingFiles.push({
-              name: `clipboard-image-${Date.now()}.png`,
-              mimeType: img.mimeType,
-              size: img.size,
-              type: "image",
-              base64Data: img.base64Data,
-              originalPath: "",
-            });
-            printSuccess(
-              `Clipboard image ready (${formatBytes(img.size)}). Send your next message to include it.`
-            );
+      // ── Preview ───────────────────────────────────────────────────────────
+      case "preview": {
+        if (!rest) { printError("Usage: /preview <file> [lines]"); break; }
+        const [filePath, linesStr] = rest.split(" ");
+        const numLines = parseInt(linesStr || "50", 10);
+        const preview = previewFile(filePath, numLines);
+        console.log();
+        console.log(preview);
+        console.log();
+        break;
+      }
+
+      // ── List dir ──────────────────────────────────────────────────────────
+      case "ls":
+      case "dir": {
+        const dirPath = rest || ".";
+        const result = listDirectory(dirPath, false);
+        printInfo(`${result.path} — ${result.total} items`);
+        console.log();
+        for (const entry of result.entries) {
+          if (entry.type === "directory") {
+            console.log(C.redDim(`  📁 ${entry.name}/`));
           } else {
-            printWarning("No image found in clipboard.");
+            const size = entry.size !== undefined ? formatSize(entry.size) : "";
+            console.log(
+              C.whiteDim(`  📄 ${entry.name.padEnd(40)}`) + C.gray(size)
+            );
           }
-        } catch (err) {
-          printError(
-            `Failed to read clipboard: ${err instanceof Error ? err.message : String(err)}`
+        }
+        console.log();
+        break;
+      }
+
+      // ── Tree ─────────────────────────────────────────────────────────────
+      case "tree": {
+        const dirPath = rest || ".";
+        const result = listDirectory(dirPath, true, 4);
+        printInfo(`${result.path} — ${result.total} items`);
+        console.log();
+        for (const entry of result.entries) {
+          const depth = entry.path.split(path.sep).length - 1;
+          const indent = "  ".repeat(depth + 1);
+          if (entry.type === "directory") {
+            console.log(C.redDim(`${indent}📁 ${entry.name}/`));
+          } else {
+            console.log(C.whiteDim(`${indent}📄 ${entry.name}`));
+          }
+        }
+        console.log();
+        break;
+      }
+
+      // ── Search ────────────────────────────────────────────────────────────
+      case "search":
+      case "find": {
+        if (!rest) { printError("Usage: /search <query> [dir]"); break; }
+        const parts2 = rest.split(" ");
+        const query = parts2[0];
+        const dirPath = parts2[1] || ".";
+        printInfo(`Searching "${query}" in ${dirPath}…`);
+        const results = searchInFiles(dirPath, query);
+        if (results.length === 0) {
+          printInfo("No results found.");
+        } else {
+          printSuccess(`${results.length} match(es):`);
+          for (const r of results.slice(0, 30)) {
+            console.log(C.redDim(`  ${r.file}`) + C.gray(`:${r.line}`));
+            console.log(C.whiteDim(`    ${r.content.slice(0, 100)}`));
+          }
+          if (results.length > 30) printInfo(`… and ${results.length - 30} more`);
+        }
+        console.log();
+        break;
+      }
+
+      // ── Write file ───────────────────────────────────────────────────────
+      case "write":
+      case "create": {
+        if (!rest) { printError("Usage: /write <file> <content>"); break; }
+        const sp = rest.indexOf(" ");
+        if (sp === -1) { printError("Usage: /write <file> <content>"); break; }
+        const filePath = rest.slice(0, sp);
+        const content = rest.slice(sp + 1);
+        const result = writeFile(filePath, content);
+        printSuccess(result.message);
+        break;
+      }
+
+      // ── Append ───────────────────────────────────────────────────────────
+      case "append": {
+        if (!rest) { printError("Usage: /append <file> <content>"); break; }
+        const sp = rest.indexOf(" ");
+        if (sp === -1) { printError("Usage: /append <file> <content>"); break; }
+        const result = appendToFile(rest.slice(0, sp), "\n" + rest.slice(sp + 1));
+        printSuccess(result.message);
+        break;
+      }
+
+      // ── Delete ───────────────────────────────────────────────────────────
+      case "delete":
+      case "rm": {
+        if (!rest) { printError("Usage: /delete <file>"); break; }
+        const result = deleteFile(rest);
+        result.success ? printSuccess(result.message) : printError(result.message);
+        break;
+      }
+
+      // ── Replace ──────────────────────────────────────────────────────────
+      case "replace": {
+        if (args.length < 3) {
+          printError('Usage: /replace <file> "find" "replace"');
+          break;
+        }
+        const result = findAndReplace(
+          args[0],
+          args[1].replace(/^"|"$/g, ""),
+          args.slice(2).join(" ").replace(/^"|"$/g, "")
+        );
+        result.success ? printSuccess(result.message) : printError(result.message);
+        break;
+      }
+
+      // ── Mkdir ────────────────────────────────────────────────────────────
+      case "mkdir": {
+        if (!rest) { printError("Usage: /mkdir <dir>"); break; }
+        const result = createDirectory(rest);
+        result.success ? printSuccess(result.message) : printError(result.message);
+        break;
+      }
+
+      // ── Save AI reply to file ─────────────────────────────────────────────
+      case "savereply": {
+        const filename = rest || `ai-output-${Date.now()}.txt`;
+        const lastReply = history.getLastAssistantMessage();
+        if (!lastReply) { printWarning("No AI response to save."); break; }
+        writeFile(filename, lastReply, false);
+        printSuccess(`Saved to: ${filename}`);
+        break;
+      }
+
+      // ── Upload ───────────────────────────────────────────────────────────
+      case "upload": {
+        if (!rest) { printError("Usage: /upload <file-path>"); break; }
+        try {
+          printInfo(`Processing: ${rest}…`);
+          const processed = await processFile(rest);
+          pendingFiles.push(processed);
+          printSuccess(
+            `Ready: ${processed.name} (${processed.type}, ${formatBytes(processed.size)})`
           );
+          printInfo("Send your next message to include this file.");
+        } catch (err) {
+          printError(err instanceof Error ? err.message : String(err));
+        }
+        break;
+      }
+
+      // ── Paste image ──────────────────────────────────────────────────────
+      case "paste-image": {
+        const img = await getClipboardImage();
+        if (img) {
+          pendingFiles.push({
+            name: `clipboard-${Date.now()}.png`,
+            mimeType: img.mimeType,
+            size: img.size,
+            type: "image",
+            base64Data: img.base64Data,
+            originalPath: "",
+          });
+          printSuccess(`Image ready (${formatBytes(img.size)}). Send your message.`);
+        } else {
+          printWarning("No image in clipboard.");
         }
         break;
       }
 
       default:
         printError(
-          `Unknown command: /${command}\nType /help to see all commands, or type / + Enter for the interactive menu.`
+          `Unknown command: /${command}\nType /help for all commands.`
         );
     }
   }
 
+  // ─── MENU ACTIONS ────────────────────────────────────────────────────────
   async function handleMenuAction(actionId: string): Promise<"exit" | void> {
     switch (actionId) {
       case "switch-model": {
-        const picker = new ModelPickerMenu();
-        const choice = await picker.show();
-        if (choice) {
-          currentProvider = choice.provider;
-          currentModel = choice.model;
-          printSuccess(
-            `Switched to: ${currentProvider}:${currentModel}`
-          );
-          printHeader(currentProvider, currentModel);
+        if (currentProvider === "openrouter") {
+          const switcher = new OpenRouterModelSwitcher(currentModel);
+          const chosen = await switcher.show();
+          if (chosen) {
+            currentModel = chosen;
+            setLastOpenRouterModel(chosen);
+            printSuccess(`Model → ${chosen}`);
+            printHeader(currentProvider, currentModel);
+          }
+        } else {
+          const picker = new ModelPickerMenu();
+          const choice = await picker.show();
+          if (choice) {
+            currentProvider = choice.provider;
+            currentModel = choice.model;
+            if (currentProvider === "openrouter") {
+              setLastOpenRouterModel(currentModel);
+              await ensureOpenRouterKey();
+            }
+            printSuccess(`Switched to: ${currentProvider}:${currentModel}`);
+            printHeader(currentProvider, currentModel);
+          }
         }
         break;
       }
@@ -279,17 +739,18 @@ export async function startChat(
         const prov = await picker.show();
         if (prov) {
           currentProvider = prov;
-          const defaultModels: Record<string, string> = {
+          const defaults: Record<string, string> = {
             ollama: "llama3.2",
             groq: "llama-3.3-70b-versatile",
-            openrouter: "meta-llama/llama-3.1-8b-instruct:free",
+            openrouter: getLastOpenRouterModel(),
             google: "gemini-2.0-flash",
             kimi: "kimi-k2-preview",
             minimax: "abab6.5s-chat",
             deepseek: "deepseek-chat",
           };
-          currentModel = defaultModels[prov] || "llama3.2";
-          printSuccess(`Switched to provider: ${currentProvider}`);
+          currentModel = defaults[prov] || "llama3.2";
+          if (prov === "openrouter") await ensureOpenRouterKey();
+          printSuccess(`Provider → ${currentProvider}`);
           printHeader(currentProvider, currentModel);
         }
         break;
@@ -297,12 +758,6 @@ export async function startChat(
 
       case "list-models":
         await listModels();
-        break;
-
-      case "pull-model":
-        printInfo(
-          "Use the slash command: /upload <model-name>\nOr run: pm pull <model-name>"
-        );
         break;
 
       case "clear":
@@ -332,74 +787,46 @@ export async function startChat(
       }
 
       case "retry":
-        if (lastUserMessage) {
-          await sendMessage(lastUserMessage, [], currentProvider, currentModel, history);
-        } else {
-          printWarning("No previous message to retry.");
-        }
+        if (lastUserMessage) await processMessage(lastUserMessage);
+        else printWarning("No previous message.");
         break;
 
       case "save": {
         const filename = `pm-chat-${Date.now()}.txt`;
-        try {
-          fs.writeFileSync(path.resolve(filename), history.toText(), "utf8");
-          printSuccess(`Conversation saved to: ${filename}`);
-        } catch (err) {
-          printError(
-            `Save failed: ${err instanceof Error ? err.message : String(err)}`
-          );
-        }
+        fs.writeFileSync(path.resolve(filename), history.toText(), "utf8");
+        printSuccess(`Saved: ${filename}`);
         break;
       }
 
       case "copy-last": {
         const last = history.getLastAssistantMessage();
-        if (!last) {
-          printWarning("No AI response to copy.");
-          break;
-        }
+        if (!last) { printWarning("No AI response to copy."); break; }
         try {
           await copyToClipboard(last);
-          printSuccess("Last response copied to clipboard.");
+          printSuccess("Copied to clipboard.");
         } catch (err) {
-          printError(
-            `Clipboard failed: ${err instanceof Error ? err.message : String(err)}`
-          );
+          printError(`Clipboard failed: ${err instanceof Error ? err.message : String(err)}`);
         }
         break;
       }
 
       case "paste-image": {
-        printInfo("Checking clipboard for image…");
-        try {
-          const img = await getClipboardImage();
-          if (img) {
-            pendingFiles.push({
-              name: `clipboard-image-${Date.now()}.png`,
-              mimeType: img.mimeType,
-              size: img.size,
-              type: "image",
-              base64Data: img.base64Data,
-              originalPath: "",
-            });
-            printSuccess(
-              `Clipboard image ready (${formatBytes(img.size)}). Send your next message to include it.`
-            );
-          } else {
-            printWarning("No image found in clipboard.");
-          }
-        } catch (err) {
-          printError(
-            `Failed to read clipboard: ${err instanceof Error ? err.message : String(err)}`
-          );
+        const img = await getClipboardImage();
+        if (img) {
+          pendingFiles.push({
+            name: `clipboard-${Date.now()}.png`,
+            mimeType: img.mimeType,
+            size: img.size,
+            type: "image",
+            base64Data: img.base64Data,
+            originalPath: "",
+          });
+          printSuccess(`Image ready. Send your message.`);
+        } else {
+          printWarning("No image in clipboard.");
         }
         break;
       }
-
-      case "upload-file":
-        printInfo("Use the slash command: /upload <file-path>");
-        printInfo("Supports: images, PDF, DOCX, XLSX, ZIP, code files, and more");
-        break;
 
       case "config":
         await showConfig();
@@ -418,24 +845,18 @@ export async function startChat(
 
       case "exit":
         return "exit";
-
-      default:
-        printInfo(`Action: ${actionId}`);
     }
   }
 
+  // ─── Smart Input ─────────────────────────────────────────────────────────
   const smartInput = new SmartInput(
     rl,
     async (input: string) => {
       if (input.startsWith("/")) {
         const result = await handleSlashCommand(input);
-        if (result === "exit") {
-          doExit();
-        }
+        if (result === "exit") doExit();
       } else {
-        const filesToSend = [...pendingFiles];
-        pendingFiles = [];
-        await sendMessage(input, filesToSend, currentProvider, currentModel, history);
+        await processMessage(input);
       }
     },
     async () => {
@@ -443,61 +864,18 @@ export async function startChat(
       const item = await menu.show();
       if (item) {
         const result = await handleMenuAction(item.id);
-        if (result === "exit") {
-          doExit();
-        }
+        if (result === "exit") doExit();
       }
     }
   );
 
   function doExit(): void {
-    running = false;
     smartInput.stop();
     rl.close();
     printGoodbye();
     process.exit(0);
   }
 
-  process.on("SIGINT", () => {
-    doExit();
-  });
-
+  process.on("SIGINT", () => doExit());
   smartInput.start();
-}
-
-// Re-export sendMessage for one-shot use
-async function sendMessage(
-  text: string,
-  files: ProcessedFile[],
-  provider: Provider,
-  model: string,
-  history: ConversationHistory
-): Promise<void> {
-  const { text: fullText, images } = buildMessageWithFiles(text, files);
-  history.addMessage("user", fullText);
-
-  try {
-    printStreamHeader(model);
-    let fullResponse = "";
-    const stream = streamChat(
-      provider,
-      model,
-      history.getMessages(),
-      images.length > 0 ? images : undefined
-    );
-
-    for await (const chunk of stream) {
-      printStreamChunk(chunk);
-      fullResponse += chunk;
-    }
-    printStreamEnd();
-
-    if (fullResponse) {
-      history.addMessage("assistant", fullResponse);
-    }
-  } catch (err) {
-    printStreamEnd();
-    const msg = err instanceof Error ? err.message : String(err);
-    printError(msg);
-  }
 }

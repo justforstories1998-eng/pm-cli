@@ -1,5 +1,4 @@
 import Conf from "conf";
-import path from "path";
 
 export interface ApiKeys {
   groq?: string;
@@ -19,17 +18,19 @@ export interface AppConfig {
   theme: "dark" | "light";
   historySize: number;
   systemPrompt: string;
+  lastOpenRouterModel: string;
 }
 
 const defaults: AppConfig = {
-  defaultProvider: "ollama",
-  defaultModel: "llama3.2",
+  defaultProvider: "openrouter",
+  defaultModel: "deepseek/deepseek-r1:free",
   ollamaUrl: "http://localhost:11434",
   apiKeys: {},
   streamOutput: true,
   theme: "dark",
-  historySize: 20,
+  historySize: 50,
   systemPrompt: "You are a helpful AI assistant.",
+  lastOpenRouterModel: "deepseek/deepseek-r1:free",
 };
 
 const store = new Conf<AppConfig>({
@@ -39,14 +40,15 @@ const store = new Conf<AppConfig>({
 
 export function getConfig(): AppConfig {
   return {
-    defaultProvider: store.get("defaultProvider"),
-    defaultModel: store.get("defaultModel"),
-    ollamaUrl: store.get("ollamaUrl"),
-    apiKeys: store.get("apiKeys"),
-    streamOutput: store.get("streamOutput"),
-    theme: store.get("theme"),
-    historySize: store.get("historySize"),
-    systemPrompt: store.get("systemPrompt"),
+    defaultProvider:     store.get("defaultProvider"),
+    defaultModel:        store.get("defaultModel"),
+    ollamaUrl:           store.get("ollamaUrl"),
+    apiKeys:             store.get("apiKeys"),
+    streamOutput:        store.get("streamOutput"),
+    theme:               store.get("theme"),
+    historySize:         store.get("historySize"),
+    systemPrompt:        store.get("systemPrompt"),
+    lastOpenRouterModel: store.get("lastOpenRouterModel"),
   };
 }
 
@@ -59,4 +61,28 @@ export function setConfig<K extends keyof AppConfig>(
 
 export function getConfigPath(): string {
   return store.path;
+}
+
+// ─── OpenRouter helpers ────────────────────────────────────────────────────
+export function getOpenRouterKey(): string {
+  return store.get("apiKeys").openrouter || "";
+}
+
+export function setOpenRouterKey(key: string): void {
+  const existing = store.get("apiKeys");
+  store.set("apiKeys", { ...existing, openrouter: key });
+}
+
+export function getLastOpenRouterModel(): string {
+  return store.get("lastOpenRouterModel") || "deepseek/deepseek-r1:free";
+}
+
+export function setLastOpenRouterModel(model: string): void {
+  store.set("lastOpenRouterModel", model);
+  store.set("defaultModel", model);
+}
+
+export function hasOpenRouterKey(): boolean {
+  const key = store.get("apiKeys").openrouter;
+  return !!(key && key.trim().length > 0);
 }
