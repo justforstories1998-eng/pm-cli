@@ -21,7 +21,7 @@ pm "Hello world"
 Quick Start
 Bash
 
-npm install -g pm-cli      # install globally
+npm install -g pm-ai-cli      # install globally
 pm config setup            # pick your provider + paste API key
 pm "Explain Docker"        # one-shot message
 pm                         # interactive chat session
