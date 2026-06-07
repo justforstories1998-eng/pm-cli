@@ -265,30 +265,67 @@ export async function buildSmartContext(
 
     const parts: string[] = [];
     let totalChars = 0;
-    const MAX_CHARS = 80000; // ~20k tokens
+
+    // Global message size cap (~20k tokens at ~4 chars/token average)
+    const MAX_CHARS = 80000;
+
+    // Per-file safety caps to avoid wasting context budget on huge files / blobs
+    const MAX_FILE_CHARS = 12000;
+
+    // Heuristic: treat file as binary if it contains many NUL bytes
+    const isLikelyBinary = (content: string): boolean => {
+      // Avoid costly scans on huge strings; cap sampling to first 200KB
+      const sample = content.length > 200_000 ? content.slice(0, 200_000) : content;
+      let nulCount = 0;
+      for (let i = 0; i < sample.length; i++) {
+        if (sample.charCodeAt(i) === 0) nulCount++;
+        if (nulCount > 0) return true; // fast path: any NUL is suspicious
+      }
+      return false;
+    };
 
     for (const filePath of allFiles) {
+      if (totalChars >= MAX_CHARS) break;
+
       try {
         const result = readFile(filePath);
-        if (result.exists && result.content.trim()) {
-          const relativePath = path.relative(currentDir, filePath);
-          const block = `=== ${relativePath} ===\n${result.content}\n=== END ${relativePath} ===`;
+        if (!result.exists) continue;
 
-          if (totalChars + block.length > MAX_CHARS) {
-            printInfo(`Context limit reached. Included ${parts.length}/${allFiles.length} files.`);
-            break;
-          }
+        const content = result.content;
+        if (!content || !content.trim()) continue;
 
-          parts.push(block);
-          filesFound.push(filePath);
-          totalChars += block.length;
+        // Skip binary-ish files
+        if (isLikelyBinary(content)) continue;
+
+        // Enforce per-file cap
+        const slicedContent =
+          content.length > MAX_FILE_CHARS ? content.slice(0, MAX_FILE_CHARS) : content;
+
+        const relativePath = path.relative(currentDir, filePath);
+        const block =
+          `=== ${relativePath} ===\n` +
+          `${slicedContent}\n` +
+          `=== END ${relativePath} ===`;
+
+        if (totalChars + block.length > MAX_CHARS) {
+          printInfo(
+            `Context limit reached. Included ${parts.length}/${allFiles.length} files.`
+          );
+          break;
         }
+
+        parts.push(block);
+        filesFound.push(filePath);
+        totalChars += block.length;
       } catch {
         // skip unreadable files
       }
     }
 
     context = parts.join("\n\n");
+    if (filesFound.length > 0) {
+      printInfo(`Project context ready: ${filesFound.length} file(s)`);
+    }
 
   } else {
     // Look for specific files mentioned
@@ -452,6 +489,55 @@ export async function applyAIFixes(
   }
 
   return { applied, skipped };
+}
+
+export function previewAIFixesTargets(
+  aiResponse: string,
+  originalFiles: string[],
+  currentDir: string = "."
+): { targets: string[]; newFiles: string[] } {
+  const targets = new Set<string>();
+  const newFiles = new Set<string>();
+
+  const codeBlocks = extractCodeBlocks(aiResponse);
+  if (codeBlocks.length === 0) return { targets: [], newFiles: [] };
+
+  for (const block of codeBlocks) {
+    if (!block.code.trim()) continue;
+
+    let targetFile: string | null = null;
+
+    if (block.filename) {
+      const found = findFileInProject(block.filename, currentDir);
+      if (found) targetFile = found;
+      else targetFile = path.resolve(block.filename);
+    } else if (originalFiles.length === 1) {
+      targetFile = originalFiles[0];
+    } else if (originalFiles.length > 1) {
+      for (const orig of originalFiles) {
+        const ext = path.extname(orig).toLowerCase();
+        if (
+          (block.language === "typescript" && ext === ".ts") ||
+          (block.language === "javascript" && ext === ".js") ||
+          (block.language === "python" && ext === ".py") ||
+          (block.language === "json" && ext === ".json")
+        ) {
+          targetFile = orig;
+          break;
+        }
+      }
+    }
+
+    if (!targetFile) continue;
+
+    const exists = fs.existsSync(targetFile);
+    const relative = path.relative(currentDir, targetFile);
+
+    if (exists) targets.add(relative);
+    else newFiles.add(relative);
+  }
+
+  return { targets: [...targets], newFiles: [...newFiles] };
 }
 
 // ─── Build system prompt for coding agent ─────────────────────────────────────

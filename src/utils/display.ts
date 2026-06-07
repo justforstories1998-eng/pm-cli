@@ -42,7 +42,16 @@ export const C = {
   selectedBg:   chalk.bgHex("#2D1B69").hex("#E0D7FF"),
 };
 
-const WIDTH = 60;
+function getTerminalWidth(): number {
+  // process.stdout.columns may be undefined in some environments
+  const cols = process.stdout.columns || 60;
+
+  // Leave some breathing room for borders + ANSI variance
+  // Clamp to avoid giant layouts or extremely narrow terminals
+  return Math.max(50, Math.min(100, cols - 2));
+}
+
+const WIDTH = getTerminalWidth();
 
 // ─── Strip ANSI codes ─────────────────────────────────────────────────────────
 export function stripAnsi(str: string): string {
@@ -138,8 +147,45 @@ function getProviderIcon(provider: string): string {
 }
 
 // ─── BANNER ───────────────────────────────────────────────────────────────────
-export function printCleanBanner(): void {
+function printPmAiLogo(): void {
+  const w = WIDTH;
+
+  const visible = (s: string) => stripAnsi(s).length;
+  const padLeftFor = (s: string, extraRight = 0) => {
+    const left = Math.floor((w - 2 - visible(s)) / 2);
+    return Math.max(0, left + extraRight);
+  };
+  const render = (s: string, extraRight = 0) => {
+    return "  " + " ".repeat(padLeftFor(s, extraRight)) + s;
+  };
+
+  // Small visual nudge requested by user (first line only)
+  const SHIFT_RIGHT = 5;
+
+  const l1 =
+    chalk.hex("#A78BFA")("██████╗ ███╗   ███╗      █████╗ ██╗") +
+    chalk.hex("#6366F1")("  ▸  ") +
+    chalk.hex("#D946EF")("PM-AI");
+
+  const l2 = chalk.hex("#4C1D95")("██╔══██╗████╗ ████║     ██╔══██╗██║");
+  const l3 = chalk.hex("#6366F1")("██████╔╝██╔████╔██║     ███████║██║");
+  const l4 = chalk.hex("#4C1D95")("██╔═══╝ ██║╚██╔╝██║     ██╔══██║██║");
+  const l5 = chalk.hex("#6366F1")("██║     ██║ ╚═╝ ██║     ██║  ██║██║");
+  const l6 = chalk.hex("#4C1D95")("╚═╝     ╚═╝     ╚═╝     ╚═╝  ╚═╝╚═╝");
+
   console.log();
+  console.log(render(l1, SHIFT_RIGHT));
+  console.log(render(l2));
+  console.log(render(l3));
+  console.log(render(l4));
+  console.log(render(l5));
+  console.log(render(l6));
+  console.log();
+}
+
+export function printCleanBanner(): void {
+  // Logo (startup only)
+  printPmAiLogo();
 
   // Glow line
   console.log("  " + C.violetDim("▄".repeat(WIDTH - 2)));

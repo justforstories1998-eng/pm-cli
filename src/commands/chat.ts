@@ -63,6 +63,7 @@ import {
   needsFileAccess,
   buildSmartContext,
   applyAIFixes,
+  previewAIFixesTargets,
   buildAgentSystemPrompt,
   wantsFullProjectScan,
   detectSpecificFiles,
@@ -260,20 +261,48 @@ export async function startChat(
     originalFiles: string[]
   ): Promise<void> {
     console.log();
-    printInfo("AI has provided code fixes. Apply them automatically?");
-    console.log(
-      C.red("  ╔═ APPLY FIXES ══════════════════════════════════╗")
+
+    const { targets, newFiles } = previewAIFixesTargets(
+      aiResponse,
+      originalFiles,
+      workingDir
     );
-    console.log(
-      C.red("  ║") +
-        C.whiteDim("  Press Y to apply fixes automatically           ") +
-        C.red("║")
-    );
-    console.log(
-      C.red("  ║") +
-        C.whiteDim("  Press N to skip (copy manually from above)     ") +
-        C.red("║")
-    );
+
+    const allEdits = [...targets, ...newFiles];
+
+    printInfo("AI has provided code fixes.");
+
+    console.log(C.red("  ╔═ APPLY FIXES ══════════════════════════════════╗"));
+    if (allEdits.length > 0) {
+      console.log(
+        C.red("  ║") +
+          C.whiteDim("  I will edit:                                       ") +
+          C.red("║")
+      );
+      for (const f of allEdits.slice(0, 6)) {
+        console.log(
+          "  " +
+            C.red("  ║") +
+            C.white40(`  • ${f.padEnd(46).slice(0, 46)}`) +
+            C.red("  ║")
+        );
+      }
+      if (allEdits.length > 6) {
+        console.log(
+          "  " +
+            C.red("  ║") +
+            C.whiteDim(`  • … +${allEdits.length - 6} more`) +
+            C.red("  ║")
+        );
+      }
+      console.log(C.red("  ║") + C.whiteDim("  Proceed? (Y/N)                                   ") + C.red("║"));
+    } else {
+      console.log(
+        C.red("  ║") +
+          C.whiteDim("  No file targets detected in the AI response.      ") +
+          C.red("║")
+      );
+    }
     console.log(C.red("  ╚═════════════════════════════════════════════════╝"));
     console.log();
 
@@ -288,12 +317,15 @@ export async function startChat(
       {
         type: "confirm",
         name: "apply",
-        message: "Apply AI fixes to files?",
+        message:
+          allEdits.length > 0
+            ? "Proceed with editing the files?"
+            : "No targets detected. Continue?",
         default: true,
       },
     ]);
 
-    if (apply) {
+    if (apply && allEdits.length > 0) {
       printInfo("Applying fixes…");
       const { applied, skipped } = await applyAIFixes(
         aiResponse,
@@ -314,6 +346,8 @@ export async function startChat(
           "No code blocks found to apply. Copy the code manually from above."
         );
       }
+    } else {
+      printInfo("Skipped applying AI fixes.");
     }
 
     console.log();
