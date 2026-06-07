@@ -1,5 +1,5 @@
 import chalk from "chalk";
-import { setLastOpenRouterModel, setConfig } from "../config";
+import { setLastOpenRouterModel } from "../config";
 
 const CURSOR_HIDE = "\x1B[?25l";
 const CURSOR_SHOW = "\x1B[?25h";
@@ -25,13 +25,15 @@ function padRight(s: string, w: number): string {
 }
 
 const C = {
-  red:        chalk.hex("#FF2222"),
-  redBright:  chalk.hex("#FF5555"),
-  redDim:     chalk.hex("#991111"),
-  white:      chalk.hex("#FFFFFF"),
-  whiteDim:   chalk.hex("#CCCCCC"),
-  gray:       chalk.hex("#666666"),
-  selectedBg: chalk.bgHex("#FF2222").hex("#FFFFFF"),
+  violet:       chalk.hex("#8B5CF6"),
+  violetBright: chalk.hex("#A78BFA"),
+  violetDim:    chalk.hex("#4C1D95"),
+  white:        chalk.hex("#F0F0F0"),
+  white90:      chalk.hex("#E6E6E6"),
+  white40:      chalk.hex("#666666"),
+  dim:          chalk.hex("#444449"),
+  gray:         chalk.hex("#555560"),
+  selectedBg:   chalk.bgHex("#2D1B69").hex("#E0D7FF"),
 };
 
 const BOX_W = 64;
@@ -45,48 +47,57 @@ export interface OpenRouterModelEntry {
 
 export const ALL_OPENROUTER_MODELS: OpenRouterModelEntry[] = [
   // DeepSeek
-  { id: "__cat", category: "DeepSeek", description: "", isHeader: true },
-  { id: "deepseek/deepseek-r1:free",                   description: "Best reasoning · free",        category: "DeepSeek" },
-  { id: "deepseek/deepseek-chat:free",                 description: "DeepSeek V3 chat · free",      category: "DeepSeek" },
-  { id: "deepseek/deepseek-r1-distill-llama-70b:free", description: "R1 distilled 70B · free",      category: "DeepSeek" },
-  { id: "deepseek/deepseek-r1-distill-qwen-32b:free",  description: "R1 distilled 32B · free",      category: "DeepSeek" },
+  { id: "__cat", category: "DeepSeek",       description: "", isHeader: true },
+  { id: "deepseek/deepseek-r1:free",                    description: "Best reasoning · free",        category: "DeepSeek" },
+  { id: "deepseek/deepseek-chat-v3-0324:free",          description: "DeepSeek V3 · free",           category: "DeepSeek" },
+  { id: "deepseek/deepseek-r1-distill-llama-70b:free",  description: "R1 distilled 70B · free",      category: "DeepSeek" },
+  { id: "deepseek/deepseek-r1-distill-qwen-32b:free",   description: "R1 distilled 32B · free",      category: "DeepSeek" },
+  // Kimi
+  { id: "__cat", category: "Kimi (Moonshot)", description: "", isHeader: true },
+  { id: "moonshotai/kimi-k2.6:free",                      description: "Kimi K2.6 · free",               category: "Kimi (Moonshot)" },
+  { id: "moonshotai/kimi-vl-a3b-thinking:free",         description: "Kimi Vision thinking · free",  category: "Kimi (Moonshot)" },
   // Meta Llama
-  { id: "__cat", category: "Meta Llama", description: "", isHeader: true },
-  { id: "meta-llama/llama-3.2-3b-instruct:free",       description: "Fast · free",                  category: "Meta Llama" },
-  { id: "meta-llama/llama-3.1-8b-instruct:free",       description: "Balanced · free",              category: "Meta Llama" },
-  { id: "meta-llama/llama-3.2-1b-instruct:free",       description: "Tiny · free",                  category: "Meta Llama" },
+  { id: "__cat", category: "Meta Llama",     description: "", isHeader: true },
+  { id: "meta-llama/llama-3.3-70b-instruct:free",       description: "Llama 3.3 70B · free",         category: "Meta Llama" },
+  { id: "meta-llama/llama-3.2-3b-instruct:free",        description: "Fast · free",                  category: "Meta Llama" },
+  { id: "meta-llama/llama-3.1-8b-instruct:free",        description: "Balanced · free",              category: "Meta Llama" },
+  { id: "meta-llama/llama-3.2-1b-instruct:free",        description: "Tiny · free",                  category: "Meta Llama" },
   // Google Gemma
-  { id: "__cat", category: "Google Gemma", description: "", isHeader: true },
-  { id: "google/gemma-3-27b-it:free",                  description: "Gemma 3 large · free",         category: "Google Gemma" },
-  { id: "google/gemma-3-12b-it:free",                  description: "Gemma 3 medium · free",        category: "Google Gemma" },
-  { id: "google/gemma-3-4b-it:free",                   description: "Gemma 3 small · free",         category: "Google Gemma" },
-  { id: "google/gemma-2-9b-it:free",                   description: "Gemma 2 · free",               category: "Google Gemma" },
+  { id: "__cat", category: "Google Gemma",   description: "", isHeader: true },
+  { id: "google/gemma-3-27b-it:free",                   description: "Gemma 3 large · free",         category: "Google Gemma" },
+  { id: "google/gemma-3-12b-it:free",                   description: "Gemma 3 medium · free",        category: "Google Gemma" },
+  { id: "google/gemma-3-4b-it:free",                    description: "Gemma 3 small · free",         category: "Google Gemma" },
+  { id: "google/gemma-2-9b-it:free",                    description: "Gemma 2 · free",               category: "Google Gemma" },
   // Qwen
-  { id: "__cat", category: "Qwen", description: "", isHeader: true },
-  { id: "qwen/qwen-2.5-72b-instruct:free",             description: "72B strong · free",            category: "Qwen" },
-  { id: "qwen/qwen-2.5-7b-instruct:free",              description: "7B fast · free",               category: "Qwen" },
-  { id: "qwen/qwen2.5-vl-7b-instruct:free",            description: "Vision 7B · free",             category: "Qwen" },
-  { id: "qwen/qwen2.5-vl-3b-instruct:free",            description: "Vision 3B · free",             category: "Qwen" },
+  { id: "__cat", category: "Qwen",           description: "", isHeader: true },
+  { id: "qwen/qwen3-32b:free",                          description: "Qwen3 32B · free",             category: "Qwen" },
+  { id: "qwen/qwen3-14b:free",                          description: "Qwen3 14B · free",             category: "Qwen" },
+  { id: "qwen/qwen3-8b:free",                           description: "Qwen3 8B · free",              category: "Qwen" },
+  { id: "qwen/qwen-2.5-72b-instruct:free",              description: "72B strong · free",            category: "Qwen" },
+  { id: "qwen/qwen2.5-vl-7b-instruct:free",             description: "Vision 7B · free",             category: "Qwen" },
   // Microsoft
-  { id: "__cat", category: "Microsoft", description: "", isHeader: true },
-  { id: "microsoft/phi-3-mini-128k-instruct:free",     description: "128K context · free",          category: "Microsoft" },
-  { id: "microsoft/phi-3-medium-128k-instruct:free",   description: "Phi3 medium · free",           category: "Microsoft" },
+  { id: "__cat", category: "Microsoft",      description: "", isHeader: true },
+  { id: "microsoft/phi-3-mini-128k-instruct:free",      description: "128K context · free",          category: "Microsoft" },
+  { id: "microsoft/phi-3-medium-128k-instruct:free",    description: "Phi3 medium · free",           category: "Microsoft" },
   // Mistral
-  { id: "__cat", category: "Mistral", description: "", isHeader: true },
-  { id: "mistralai/mistral-7b-instruct:free",          description: "Efficient · free",             category: "Mistral" },
+  { id: "__cat", category: "Mistral",        description: "", isHeader: true },
+  { id: "mistralai/mistral-7b-instruct:free",           description: "Efficient · free",             category: "Mistral" },
+  { id: "mistralai/mistral-small-3.2-24b-instruct:free", description: "Mistral Small · free",        category: "Mistral" },
   // Others
-  { id: "__cat", category: "Others", description: "", isHeader: true },
-  { id: "nousresearch/hermes-3-llama-3.1-8b:free",    description: "Hermes 3 · free",              category: "Others" },
-  { id: "openchat/openchat-7b:free",                   description: "OpenChat · free",              category: "Others" },
-  { id: "huggingfaceh4/zephyr-7b-beta:free",           description: "Zephyr 7B · free",             category: "Others" },
-  { id: "gryphe/mythomax-l2-13b:free",                 description: "MythoMax 13B · free",          category: "Others" },
-  { id: "moonshotai/kimi-k2.6:free",                   description: "Kimi k2.6 · free",             category: "Others" }
+  { id: "__cat", category: "Others",         description: "", isHeader: true },
+  { id: "nousresearch/hermes-3-llama-3.1-8b:free",      description: "Hermes 3 · free",              category: "Others" },
+  { id: "openchat/openchat-7b:free",                    description: "OpenChat · free",              category: "Others" },
+  { id: "huggingfaceh4/zephyr-7b-beta:free",            description: "Zephyr 7B · free",             category: "Others" },
+  { id: "gryphe/mythomax-l2-13b:free",                  description: "MythoMax 13B · free",          category: "Others" },
+  //Poolside
+  { id: "__cat", category: "Poolside",       description: "", isHeader: true },
+  { id: "poolside/laguna-m.1:free",                  description: "Poolside: Laguna M.1 (free)",         category: "Poolside" },
 ];
 
 export class OpenRouterModelSwitcher {
-  private selectedIndex  = 0;
-  private scrollOffset   = 0;
-  private filterText     = "";
+  private selectedIndex    = 0;
+  private scrollOffset     = 0;
+  private filterText       = "";
   private filteredItems: OpenRouterModelEntry[] = [];
   private readonly VISIBLE = 14;
   private lastRenderedLines = 0;
@@ -99,10 +110,10 @@ export class OpenRouterModelSwitcher {
   }
 
   async show(): Promise<string | null> {
-    this.filterText    = "";
-    this.filteredItems = this.applyFilter();
-    this.selectedIndex = this.firstSelectableIndex();
-    this.scrollOffset  = 0;
+    this.filterText       = "";
+    this.filteredItems    = this.applyFilter();
+    this.selectedIndex    = this.firstSelectableIndex();
+    this.scrollOffset     = 0;
     this.lastRenderedLines = 0;
 
     return new Promise<string | null>((res) => {
@@ -143,46 +154,45 @@ export class OpenRouterModelSwitcher {
 
     const filterDisplay = this.filterText
       ? C.white(this.filterText)
-      : C.gray("type to filter models…");
+      : C.gray("type to filter…");
 
-    lines.push(C.red("╔══ OPENROUTER MODEL SWITCHER " + "═".repeat(w - 29) + "╗"));
     lines.push(
-      C.red("║") +
-      padRight(C.gray(`  Current: `) + C.redBright(this.currentModel), w) +
-      C.red("║")
+      "  " + C.dim("╭─ ") + C.violetBright("◈ OpenRouter Models ") + C.dim("─".repeat(w - 23)) + C.dim("╮")
     );
     lines.push(
-      C.red("║") +
-      padRight(C.redDim("  ⌕ ") + filterDisplay, w) +
-      C.red("║")
+      "  " + C.dim("│") +
+      padRight(C.white40("  Current: ") + C.violetBright(this.currentModel), w) +
+      C.dim("│")
     );
-    lines.push(C.red("╠" + "═".repeat(w) + "╣"));
+    lines.push(
+      "  " + C.dim("│") +
+      padRight(C.dim("  ⌕  ") + filterDisplay, w) +
+      C.dim("│")
+    );
+    lines.push("  " + C.dim("├") + C.dim("─".repeat(w)) + C.dim("┤"));
 
-    const visible = this.filteredItems.slice(
-      this.scrollOffset,
-      this.scrollOffset + this.VISIBLE
-    );
+    const visible = this.filteredItems.slice(this.scrollOffset, this.scrollOffset + this.VISIBLE);
 
     if (visible.length === 0) {
       lines.push(
-        C.red("║") +
+        "  " + C.dim("│") +
         padRight(C.gray(`  No models match: "${this.filterText}"`), w) +
-        C.red("║")
+        C.dim("│")
       );
     } else {
       for (let i = 0; i < visible.length; i++) {
-        const item  = visible[i];
-        const aIdx  = i + this.scrollOffset;
+        const item       = visible[i];
+        const aIdx       = i + this.scrollOffset;
 
         if (item.isHeader) {
           lines.push(
-            C.red("║") +
+            "  " + C.dim("│") +
             padRight(
-              C.red(`  ▸ ${item.category} `) +
-              C.redDim("─".repeat(Math.max(0, w - item.category.length - 6))),
+              C.violetBright(`  ▸ ${item.category} `) +
+              C.dim("·".repeat(Math.max(0, w - item.category.length - 7))),
               w
             ) +
-            C.red("║")
+            C.dim("│")
           );
         } else {
           const isCurrent  = item.id === this.currentModel;
@@ -193,19 +203,25 @@ export class OpenRouterModelSwitcher {
 
           if (isSelected) {
             lines.push(
-              C.red("║") + C.selectedBg(padRight(row, w)) + C.red("║")
+              "  " + C.dim("│") + C.selectedBg(padRight(row, w)) + C.dim("│")
             );
           } else if (isCurrent) {
             lines.push(
-              C.red("║") +
-              padRight(C.redBright(`  ${marker} `) + C.white(modelShort.padEnd(38)) + C.gray(item.description), w) +
-              C.red("║")
+              "  " + C.dim("│") +
+              padRight(
+                C.violetBright(`  ${marker} `) + C.white(modelShort.padEnd(38)) + C.gray(item.description),
+                w
+              ) +
+              C.dim("│")
             );
           } else {
             lines.push(
-              C.red("║") +
-              padRight(C.gray(`  ${marker} `) + C.whiteDim(modelShort.padEnd(38)) + C.gray(item.description), w) +
-              C.red("║")
+              "  " + C.dim("│") +
+              padRight(
+                C.dim(`  ${marker} `) + C.white40(modelShort.padEnd(38)) + C.dim(item.description),
+                w
+              ) +
+              C.dim("│")
             );
           }
         }
@@ -215,19 +231,19 @@ export class OpenRouterModelSwitcher {
     const total = this.filteredItems.filter((x) => !x.isHeader).length;
     if (total > this.VISIBLE) {
       lines.push(
-        C.red("║") +
+        "  " + C.dim("│") +
         padRight(C.gray(`  ${Math.min(this.VISIBLE, visible.filter(x => !x.isHeader).length)}/${total} models  ↑↓ scroll`), w) +
-        C.red("║")
+        C.dim("│")
       );
     }
 
-    lines.push(C.red("╠" + "═".repeat(w) + "╣"));
+    lines.push("  " + C.dim("├") + C.dim("─".repeat(w)) + C.dim("┤"));
     lines.push(
-      C.red("║") +
-      padRight(C.gray("  ↑↓ navigate · Enter select · Esc cancel · type to filter"), w) +
-      C.red("║")
+      "  " + C.dim("│") +
+      padRight(C.gray("  ↑↓ navigate  ↵ select  Esc cancel  type to filter"), w) +
+      C.dim("│")
     );
-    lines.push(C.red("╚" + "═".repeat(w) + "╝"));
+    lines.push("  " + C.dim("╰") + C.dim("─".repeat(w)) + C.dim("╯"));
 
     if (this.lastRenderedLines > 0) clearLines(this.lastRenderedLines);
     for (const line of lines) process.stdout.write(line + "\n");
@@ -294,12 +310,10 @@ export class OpenRouterModelSwitcher {
     const selectables = this.filteredItems
       .map((item, i) => ({ item, i }))
       .filter(({ item }) => !item.isHeader);
-
     if (selectables.length === 0) return;
     const cur  = selectables.findIndex(({ i }) => i === this.selectedIndex);
     const next = Math.max(0, Math.min(selectables.length - 1, cur + delta));
     this.selectedIndex = selectables[next].i;
-
     if (this.selectedIndex < this.scrollOffset)
       this.scrollOffset = this.selectedIndex;
     if (this.selectedIndex >= this.scrollOffset + this.VISIBLE)

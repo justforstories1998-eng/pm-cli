@@ -1,19 +1,10 @@
 import readline from "readline";
-import chalk from "chalk";
-import { InteractiveMenu, MenuItem } from "./menu";
+import { renderInputBox, stripAnsi } from "./display";
 
-const C = {
-  red: chalk.hex("#FF2222"),
-  redDim: chalk.hex("#991111"),
-  white: chalk.hex("#FFFFFF"),
-  whiteDim: chalk.hex("#CCCCCC"),
-  gray: chalk.hex("#666666"),
-};
-
-const ESC = "\x1B";
-const CLEAR_LINE = `${ESC}[2K`;
-const CURSOR_UP = `${ESC}[1A`;
-const CURSOR_COL0 = `${ESC}[G`;
+const CURSOR_UP   = "\x1B[1A";
+const CLEAR_LINE  = "\x1B[2K";
+const CURSOR_COL0 = "\x1B[G";
+const CURSOR_SHOW = "\x1B[?25h";
 
 function clearLines(n: number): void {
   for (let i = 0; i < n; i++) {
@@ -48,28 +39,9 @@ export class SmartInput {
   }
 
   private renderPrompt(): void {
-    const lines: string[] = [];
-    lines.push(C.red("╔═ YOU ═╗"));
-    lines.push(C.red("╚═══════╝"));
-
-    let inputLine: string;
-    if (this.buffer === "/") {
-      inputLine =
-        C.white("/") + C.gray(" ↵ Enter to open menu · or keep typing");
-    } else if (this.buffer.length > 0) {
-      inputLine = C.white(this.buffer) + C.gray("█");
-    } else {
-      inputLine = C.gray("Message… (/ for menu, Ctrl+C to exit)");
-    }
-    lines.push(inputLine);
-
-    if (this.lastRenderedLines > 0) {
-      clearLines(this.lastRenderedLines);
-    }
-
-    for (const line of lines) {
-      process.stdout.write(line + "\n");
-    }
+    const lines = renderInputBox(this.buffer);
+    if (this.lastRenderedLines > 0) clearLines(this.lastRenderedLines);
+    for (const line of lines) process.stdout.write(line + "\n");
     this.lastRenderedLines = lines.length;
   }
 
@@ -82,7 +54,6 @@ export class SmartInput {
 
   private attachRawMode(): void {
     if (!process.stdin.isTTY) {
-      // Fallback: use readline
       this.rl.on("line", async (line) => {
         if (!this.active) return;
         await this.handleSubmit(line.trim());
@@ -96,8 +67,7 @@ export class SmartInput {
 
     this.keyHandler = async (chunk: Buffer) => {
       if (!this.active) return;
-      const key = chunk.toString();
-      await this.handleKey(key);
+      await this.handleKey(chunk.toString());
     };
 
     (process.stdin as NodeJS.ReadStream).on("data", this.keyHandler);
@@ -106,10 +76,7 @@ export class SmartInput {
   private detachRawMode(): void {
     if (!process.stdin.isTTY) return;
     try {
-      (process.stdin as NodeJS.ReadStream).removeListener(
-        "data",
-        this.keyHandler
-      );
+      (process.stdin as NodeJS.ReadStream).removeListener("data", this.keyHandler);
       process.stdin.setRawMode(false);
       process.stdin.pause();
     } catch (_) {}
@@ -118,10 +85,11 @@ export class SmartInput {
   private async handleKey(key: string): Promise<void> {
     // Ctrl+C
     if (key === "\x03") {
+      process.stdout.write(CURSOR_SHOW);
       process.exit(0);
     }
 
-    // Escape → clear buffer
+    // Escape — clear buffer
     if (key === "\x1B") {
       this.buffer = "";
       this.renderPrompt();
@@ -153,19 +121,17 @@ export class SmartInput {
       return;
     }
 
-    // Arrow keys → ignore
-    if (key.startsWith("\x1B[")) {
-      return;
-    }
-
-    // Ctrl+U → clear line
+    // Ctrl+U — clear line
     if (key === "\x15") {
       this.buffer = "";
       this.renderPrompt();
       return;
     }
 
-    // Printable character
+    // Arrow keys — ignore (reserved for menus)
+    if (key.startsWith("\x1B[")) return;
+
+    // Printable characters
     if (key.length >= 1 && key >= " ") {
       this.buffer += key;
       this.renderPrompt();
