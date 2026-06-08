@@ -92,6 +92,9 @@ export const ALL_OPENROUTER_MODELS: OpenRouterModelEntry[] = [
   //Poolside
   { id: "__cat", category: "Poolside",       description: "", isHeader: true },
   { id: "poolside/laguna-m.1:free",                  description: "Poolside: Laguna M.1 (free)",         category: "Poolside" },
+  //NVIDIA
+  { id: "__cat", category: "NVIDIA",        description: "", isHeader: true },
+  { id: "nvidia/nemotron-3-ultra-550b-a55b:free",                  description: "nvidia/nemotron-3-ultra-550b-a55b · free",          category: "NVIDIA" },
 ];
 
 export class OpenRouterModelSwitcher {

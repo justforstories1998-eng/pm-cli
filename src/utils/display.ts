@@ -9,12 +9,12 @@ export const C = {
   white40:      chalk.hex("#666666"),
   white20:      chalk.hex("#333333"),
 
-  // Violet / Purple accents
-  violet:       chalk.hex("#8B5CF6"),
-  violetBright: chalk.hex("#A78BFA"),
-  violetDim:    chalk.hex("#4C1D95"),
-  indigo:       chalk.hex("#6366F1"),
-  fuchsia:      chalk.hex("#D946EF"),
+  // Red / Gold accents
+  violet:       chalk.hex("#DC2626"),
+  violetBright: chalk.hex("#F87171"),
+  violetDim:    chalk.hex("#7F1D1D"),
+  indigo:       chalk.hex("#B45309"),
+  fuchsia:      chalk.hex("#F59E0B"),
 
   // Background tones
   bgDark:       chalk.bgHex("#0A0A0B"),
@@ -26,28 +26,24 @@ export const C = {
   success:      chalk.hex("#10B981"),
   error:        chalk.hex("#EF4444"),
   warning:      chalk.hex("#F59E0B"),
-  info:         chalk.hex("#6366F1"),
+  info:         chalk.hex("#B45309"),
 
   // Dim
   dim:          chalk.hex("#444449"),
   dimBright:    chalk.hex("#666670"),
 
   // ─── Backward compatibility aliases ───────────────────────────────────────
-  red:          chalk.hex("#8B5CF6"),
-  redBright:    chalk.hex("#A78BFA"),
-  redDim:       chalk.hex("#4C1D95"),
+  red:          chalk.hex("#DC2626"),
+  redBright:    chalk.hex("#F87171"),
+  redDim:       chalk.hex("#7F1D1D"),
   whiteDim:     chalk.hex("#A0A0A0"),
   gray:         chalk.hex("#555560"),
   grayDark:     chalk.hex("#333338"),
-  selectedBg:   chalk.bgHex("#2D1B69").hex("#E0D7FF"),
+  selectedBg:   chalk.bgHex("#7F1D1D").hex("#FFE4E4"),
 };
 
 function getTerminalWidth(): number {
-  // process.stdout.columns may be undefined in some environments
   const cols = process.stdout.columns || 60;
-
-  // Leave some breathing room for borders + ANSI variance
-  // Clamp to avoid giant layouts or extremely narrow terminals
   return Math.max(50, Math.min(100, cols - 2));
 }
 
@@ -77,8 +73,8 @@ function center(text: string, width: number): string {
 // ─── Gradient text simulation ─────────────────────────────────────────────────
 function gradientText(text: string): string {
   const colors = [
-    "#FFFFFF", "#F5F5FF", "#EBEBFF", "#E0D7FF",
-    "#D4C5FF", "#C4B0FF", "#B39DFF", "#A78BFA",
+    "#FFFFFF", "#FFF7ED", "#FEF3C7", "#FDE68A",
+    "#FCD34D", "#FBBF24", "#F59E0B", "#D97706",
   ];
   return text
     .split("")
@@ -159,19 +155,18 @@ function printPmAiLogo(): void {
     return "  " + " ".repeat(padLeftFor(s, extraRight)) + s;
   };
 
-  // Small visual nudge requested by user (first line only)
   const SHIFT_RIGHT = 5;
 
   const l1 =
-    chalk.hex("#A78BFA")("██████╗ ███╗   ███╗      █████╗ ██╗") +
-    chalk.hex("#6366F1")("  ▸  ") +
-    chalk.hex("#D946EF")("PM-AI");
+    chalk.hex("#F87171")("██████╗ ███╗   ███╗      █████╗ ██╗") +
+    chalk.hex("#B45309")("  ▸  ") +
+    chalk.hex("#F59E0B")("PM-AI");
 
-  const l2 = chalk.hex("#4C1D95")("██╔══██╗████╗ ████║     ██╔══██╗██║");
-  const l3 = chalk.hex("#6366F1")("██████╔╝██╔████╔██║     ███████║██║");
-  const l4 = chalk.hex("#4C1D95")("██╔═══╝ ██║╚██╔╝██║     ██╔══██║██║");
-  const l5 = chalk.hex("#6366F1")("██║     ██║ ╚═╝ ██║     ██║  ██║██║");
-  const l6 = chalk.hex("#4C1D95")("╚═╝     ╚═╝     ╚═╝     ╚═╝  ╚═╝╚═╝");
+  const l2 = chalk.hex("#7F1D1D")("██╔══██╗████╗ ████║     ██╔══██╗██║");
+  const l3 = chalk.hex("#B45309")("██████╔╝██╔████╔██║     ███████║██║");
+  const l4 = chalk.hex("#7F1D1D")("██╔═══╝ ██║╚██╔╝██║     ██╔══██║██║");
+  const l5 = chalk.hex("#B45309")("██║     ██║ ╚═╝ ██║     ██║  ██║██║");
+  const l6 = chalk.hex("#7F1D1D")("╚═╝     ╚═╝     ╚═╝     ╚═╝  ╚═╝╚═╝");
 
   console.log();
   console.log(render(l1, SHIFT_RIGHT));
@@ -184,17 +179,13 @@ function printPmAiLogo(): void {
 }
 
 export function printCleanBanner(): void {
-  // Logo (startup only)
   printPmAiLogo();
 
-  // Glow line
   console.log("  " + C.violetDim("▄".repeat(WIDTH - 2)));
 
-  // Glass card
   console.log("  " + C.dim("╭") + C.dim("─".repeat(WIDTH - 2)) + C.dim("╮"));
   console.log("  " + C.dim("│") + " ".repeat(WIDTH - 2) + C.dim("│"));
 
-  // Gradient title
   const title = gradientText("How can I help today?");
   console.log(
     "  " + C.dim("│") +
@@ -202,7 +193,6 @@ export function printCleanBanner(): void {
     C.dim("│")
   );
 
-  // Divider dots
   const divider = C.dim("·".repeat(Math.floor((WIDTH - 4) / 2)));
   console.log(
     "  " + C.dim("│") +
@@ -210,7 +200,6 @@ export function printCleanBanner(): void {
     C.dim("│")
   );
 
-  // Subtitle
   console.log(
     "  " + C.dim("│") +
     center(C.white40("Type a command or ask a question"), WIDTH - 2) +
@@ -258,14 +247,12 @@ export function printUserMessage(content: string, hasFiles?: boolean): void {
   const w = WIDTH;
   console.log();
 
-  // User badge
   console.log(
     "  " +
     chalk.bgHex("#1C1C21")(C.white40(" ") + C.white90("  You  ") + C.white40(" ")) +
     (hasFiles ? "  " + C.violet("⎙ files attached") : "")
   );
 
-  // Message bubble
   const lines = wrapText(content, w - 6);
   console.log("  " + C.dim("╭") + C.dim("─".repeat(w - 2)) + C.dim("╮"));
   for (const line of lines) {
@@ -288,7 +275,7 @@ export function printStreamHeader(model?: string): void {
   process.stdout.write("\n");
   process.stdout.write(
     "  " +
-    chalk.bgHex("#2D1B69")(
+    chalk.bgHex("#450A0A")(
       C.violet(" ") + C.violetBright(` ✦ ${modelLabel} `) + C.violet(" ")
     ) +
     "\n"
@@ -322,7 +309,7 @@ export function printThinking(model?: string): void {
     "  " +
     chalk.bgHex("#0F0F14")(
       C.dim(" │ ") +
-      chalk.bgHex("#1A1A2E")(C.violet(` ✦ ${label} `)) +
+      chalk.bgHex("#2D0A0A")(C.violet(` ✦ ${label} `)) +
       C.white40("  Thinking ") +
       C.violet("● ") +
       C.violetDim("● ") +
@@ -511,7 +498,7 @@ export function printConfig(
   for (const item of items) {
     const val = item.sensitive
       ? item.value
-        ? chalk.bgHex("#1A1A2E")(C.violet(" ●●●●●●●● ") + C.white40("(set)"))
+        ? chalk.bgHex("#2D0A0A")(C.violet(" ●●●●●●●● ") + C.white40("(set)"))
         : C.dim("(not set)")
       : C.white90(item.value || "(empty)");
 
@@ -645,7 +632,7 @@ export function renderInputBox(buffer: string): string[] {
 export function printAgentStatus(action: string, files?: string[]): void {
   console.log(
     "  " +
-    chalk.bgHex("#1A1A2E")(
+    chalk.bgHex("#2D0A0A")(
       C.violet(" ◈ ") +
       C.violetBright("Agent ") +
       C.white40(action) +
@@ -667,7 +654,7 @@ export function printApplyFixesPrompt(): void {
   console.log();
   console.log(
     "  " +
-    chalk.bgHex("#1A1A2E")(
+    chalk.bgHex("#2D0A0A")(
       C.violet(" ✦ ") +
       C.white90("AI has provided fixes") +
       C.white40("  Apply automatically?") +
