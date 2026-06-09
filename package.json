@@ -1,6 +1,6 @@
 {
   "name": "pm-ai-cli",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Universal AI Terminal CLI — Ollama, Groq, OpenRouter, Google, Kimi, MiniMax, DeepSeek in one terminal",
   "main": "dist/index.js",
   "bin": {
