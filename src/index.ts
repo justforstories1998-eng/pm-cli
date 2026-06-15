@@ -11,8 +11,19 @@ const program = new Command();
 program
 
   .name("pm")
-  .description("Universal AI Terminal CLI — All Models, All Providers")
-.version("1.0.1", "-v, --version");
+  .description("Universal AI Terminal CLI — All Models, All Providers");
+
+const pkg = (() => {
+  try {
+    // Works from both src/ (ts-node) and dist/ (compiled output)
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    return require("../package.json");
+  } catch {
+    return null;
+  }
+})();
+
+program.version((pkg && typeof pkg.version === "string" ? pkg.version : "0.0.0"), "-v, --version");
 
 
 // ─── pm [message] ─────────────────────────────────────────────────────────────
