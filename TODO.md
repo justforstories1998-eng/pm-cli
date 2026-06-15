@@ -1,10 +1,12 @@
-- [ ] Bump package version in package.json
-- [ ] Remove hardcoded CLI version and read from installed package.json in src/index.ts
+# pm-ai-cli release checklist
 
-- [ ] Build (npm run build)
+- [x] Diagnose: banner printed twice / dist missing in local checkout
+- [x] Fix: prevent duplicate banner by removing extra `printCleanBanner()` calls
+- [x] Bump version to 1.0.4
+- [x] Create tag v1.0.4
+- [x] Push commits + tags to GitHub (publish workflow triggers on v*)
+- [ ] Update README.md professionally (correct package name, version, install steps, commands)
+- [ ] Commit + push README changes (create a new tag/publish if required)
 
-- [ ] Publish new version to npm (npm publish)
-- [ ] Verify: `pm -v` in a new terminal
-- [ ] If still stale: uninstall -g old version and reinstall
-
+- [ ] Verify locally: `npm run build` and `node dist/index.js --help` after README update
 
