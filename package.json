@@ -18,6 +18,7 @@
     "build": "tsc && node scripts/fix-shebang.js",
     "dev": "ts-node src/index.ts",
     "clean": "rimraf dist",
+    "prepare": "npm run build",
     "prepublishOnly": "npm run clean && npm run build",
     "version:patch": "npm version patch",
     "version:minor": "npm version minor",

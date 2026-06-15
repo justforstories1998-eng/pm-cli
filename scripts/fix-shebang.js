@@ -2,6 +2,13 @@ const fs = require("fs");
 const path = require("path");
 
 const file = path.join(__dirname, "../dist/index.js");
+
+if (!fs.existsSync(file)) {
+  console.error(`✗ dist entry missing: ${file}`);
+  process.exitCode = 1;
+  return;
+}
+
 let content = fs.readFileSync(file, "utf8");
 
 if (!content.startsWith("#!/usr/bin/env node")) {

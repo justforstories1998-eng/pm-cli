@@ -12,7 +12,7 @@ program
 
   .name("pm")
   .description("Universal AI Terminal CLI — All Models, All Providers")
-.version("1.0.0", "-v, --version");
+.version("1.0.1", "-v, --version");
 
 
 // ─── pm [message] ─────────────────────────────────────────────────────────────
