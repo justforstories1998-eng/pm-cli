@@ -37,7 +37,6 @@ program
       message?: string,
       opts?: { provider?: string; model?: string; system?: string }
     ) => {
-      printCleanBanner();
       await startChat(message, opts || {});
     }
   );
@@ -55,7 +54,6 @@ program
       message?: string,
       opts?: { provider?: string; model?: string; system?: string }
     ) => {
-      printCleanBanner();
       await startChat(message, opts || {});
     }
   );
@@ -66,7 +64,6 @@ program
   .description("Quick OpenRouter chat — pm or deepseek/deepseek-r1:free")
   .option("-s, --system <prompt>", "System prompt")
   .action(async (model?: string, opts?: { system?: string }) => {
-    printCleanBanner();
     const cfg = getConfig();
     const chosenModel = model || cfg.lastOpenRouterModel || "deepseek/deepseek-r1:free";
     await startChat(undefined, {
@@ -82,7 +79,6 @@ program
   .description("Chat with Groq")
   .option("-m, --model <model>", "Groq model")
   .action(async (message?: string, opts?: { model?: string }) => {
-    printCleanBanner();
     await startChat(message, { provider: "groq", model: opts?.model });
   });
 
@@ -92,7 +88,6 @@ program
   .description("Chat with DeepSeek")
   .option("-m, --model <model>", "DeepSeek model")
   .action(async (message?: string, opts?: { model?: string }) => {
-    printCleanBanner();
     await startChat(message, { provider: "deepseek", model: opts?.model || "deepseek-chat" });
   });
 
@@ -101,7 +96,6 @@ program
   .command("kimi [message]")
   .description("Chat with Kimi")
   .action(async (message?: string) => {
-    printCleanBanner();
     await startChat(message, { provider: "kimi", model: "kimi-k2-preview" });
   });
 
@@ -112,7 +106,6 @@ program
   .description("Chat with local Ollama model")
   .option("-m, --model <model>", "Ollama model name")
   .action(async (message?: string, opts?: { model?: string }) => {
-    printCleanBanner();
     await startChat(message, { provider: "ollama", model: opts?.model });
   });
 
