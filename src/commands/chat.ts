@@ -36,6 +36,12 @@ import {
   stripAnsi,
   C,
 } from "../utils/display";
+
+import {
+  listSkills,
+  uploadSkill,
+  buildSkillContext,
+} from "../utils/skills";
 import { listModels } from "./models";
 import { showConfig } from "./config";
 import { copyToClipboard } from "../utils/clipboard";
@@ -148,6 +154,9 @@ export async function startChat(
   let pendingFiles: ProcessedFile[] = [];
   let agentMode = true;
   const workingDir = process.cwd();
+
+  // Per-session selected “skill” (Claude Code-style)
+  let activeSkill: string | null = null;
 
   const progressBar = new AgentProgressBar();
   const thinkingDisplay = new ThinkingDisplay();
@@ -277,6 +286,22 @@ export async function startChat(
     }
 
     lastUserMessage = message;
+
+    // If a skill is selected for this session, prepend its context
+    if (activeSkill) {
+      const { context, missing } = buildSkillContext(activeSkill);
+      if (missing) {
+        printWarning(missing);
+      } else if (context.trim()) {
+        finalMessage = `=== Skill: ${activeSkill} ===
+${context}
+
+=== End Skill ===
+
+User request: ${message}`;
+      }
+    }
+
     printUserMessage(message, pendingFiles.length > 0);
 
     if (pendingFiles.length > 0) {
@@ -1126,6 +1151,74 @@ export async function startChat(
           printError(
             err instanceof Error ? err.message : String(err)
           );
+        }
+        break;
+      }
+
+      case "skill": {
+        if (!rest) {
+          printError(
+            "Usage: /skill <upload|use|list>\nExamples:\n  /skill list\n  /skill upload myskill ./some-folder\n  /skill use myskill"
+          );
+          break;
+        }
+
+        const [sub, ...rargs] = rest.split(/\s+/).filter(Boolean);
+        if (!sub) break;
+
+        switch (sub.toLowerCase()) {
+          case "list": {
+            const skills = listSkills();
+            if (skills.length === 0) {
+              printInfo("No skills uploaded yet.");
+            } else {
+              printSuccess(`Skills (${skills.length}): ${skills.join(", ")}`);
+            }
+            break;
+          }
+
+          case "use": {
+            if (rargs.length < 1) {
+              printError("Usage: /skill use <name>");
+              break;
+            }
+            const name = rargs[0];
+            const { missing } = buildSkillContext(name);
+            if (missing) {
+              printError(missing);
+              activeSkill = null;
+            } else {
+              activeSkill = name.replace(/[^a-zA-Z0-9_\-]/g, "_");
+              printSuccess(`Skill in use for this session: ${activeSkill}`);
+            }
+            break;
+          }
+
+          case "upload": {
+            if (rargs.length < 2) {
+              printError("Usage: /skill upload <name> <path>");
+              break;
+            }
+            const [name, ...pathParts] = rargs;
+            const sourcePath = pathParts.join(" ");
+
+            try {
+              const res = await uploadSkill(name, sourcePath);
+              printSuccess(
+                `Skill uploaded: ${res.storedSkillName} (copied to ${res.rootDir})`
+              );
+            } catch (err) {
+              printError(
+                err instanceof Error ? err.message : String(err)
+              );
+            }
+            break;
+          }
+
+          default:
+            printError(
+              `Unknown /skill command: ${sub}\nUse: /skill list | /skill use <name> | /skill upload <name> <path>`
+            );
         }
         break;
       }
