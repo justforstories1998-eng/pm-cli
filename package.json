@@ -1,6 +1,6 @@
 {
   "name": "pm-ai-cli-publish",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "Universal AI Terminal CLI — Ollama, Groq, OpenRouter, Google, Kimi, MiniMax, DeepSeek in one terminal",
   "main": "dist/index.js",
   "bin": {
@@ -32,7 +32,7 @@
     "commander": "^11.1.0",
     "conf": "^10.2.0",
     "form-data": "^4.0.0",
-    "glob": "^10.5.0",
+    "glob": "^11.0.0",
     "inquirer": "^8.2.6",
     "mammoth": "^1.6.0",
     "marked": "^9.1.6",
@@ -50,7 +50,7 @@
     "@types/node": "^20.0.0",
     "@types/node-fetch": "^2.6.9",
     "@types/pdf-parse": "^1.1.4",
-    "rimraf": "^5.0.0",
+    "rimraf": "^6.1.3",
     "ts-node": "^10.9.0",
     "typescript": "^5.3.0"
   },
