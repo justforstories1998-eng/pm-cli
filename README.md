@@ -9,17 +9,18 @@ Universal AI terminal CLI — Ollama, Groq, OpenRouter, Google Gemini, Kimi, Min
   <pre>▀▄▀▄▀ PM AI CLI ▀▄▀▄▀</pre>
 </div>
 
-> If the logo image link doesn’t load for you (e.g., during preview), the CLI still works exactly the same.
+> The CLI workflow is the same for all providers: **set config → run `pm`**.  
+> If the logo doesn’t render, the CLI still works normally.
 
 ---
 
-## Install
+## 1) Install
 
 ```bash
 npm install -g pm-ai-cli
 ```
 
-Verify:
+Verify installation:
 
 ```bash
 pm --version
@@ -28,69 +29,62 @@ pm --help
 
 ---
 
-## First run (setup keys)
+## 2) First run (recommended step-by-step)
 
-Run the wizard to set provider + API keys:
-
+### Step A — Start setup wizard
 ```bash
 pm config setup
 ```
 
-Then try:
+This wizard guides you to:
+- pick your **provider**
+- paste the appropriate **API key**
+- (optionally) set a default **model**
 
+### Step B — Confirm config exists
+```bash
+pm config show
+```
+
+### Step C — Run your first message
 ```bash
 pm "Hello world"
+```
+
+### Step D — Start interactive chat (menu + slash commands)
+```bash
 pm
 ```
 
 ---
 
-## Quick usage
+## 3) Provider selection (how to switch quickly)
 
-### One-shot message
-```bash
-pm "Explain Docker"
-```
-
-### Start interactive chat
-```bash
-pm chat
-# or
-pm
-```
-
----
-
-## Choose provider + model
-
-Common options:
+CLI options you can reuse:
 
 - `-p, --provider <provider>`: `groq | openrouter | ollama | google | kimi | minimax | deepseek`
-- `-m, --model <model>`: model name
-- `-s, --system <prompt>`: system prompt
+- `-m, --model <model>`: provider model name
+- `-s, --system <prompt>`: system prompt override
 
-Examples:
+### Examples
 
 ```bash
+# Groq
 pm -p groq -m <model> "Hello"
+
+# Ollama (local)
 pm -p ollama -m <model> "Hello"
 
-pm or <openrouter-model>
-pm -p openrouter -m "deepseek/deepseek-r1:free" "Explain quantum computing"
-```
+# OpenRouter (shortcut)
+pm or deepseek/deepseek-r1:free
 
-Provider shorthand commands:
-
-```bash
-pm groq "hello"
-pm deepseek "explain Docker"
-pm kimi "write a poem"
-pm ollama
+# OpenRouter with system prompt
+pm -p openrouter -m "deepseek/deepseek-r1:free" -s "Be concise" "Explain Docker"
 ```
 
 ---
 
-## Commands (complete list)
+## 4) Full command list (with examples)
 
 ### Help / version
 ```bash
@@ -98,50 +92,79 @@ pm --help
 pm -v
 ```
 
-### Models
+### One-shot message (default provider/model)
+```bash
+pm "Explain quantum computing"
+```
+
+### Interactive chat
+```bash
+pm
+pm chat
+```
+
+---
+
+### Provider shortcut commands
+```bash
+pm groq "hello"
+pm deepseek "explain Docker"
+pm kimi "write a poem"
+
+# Ollama (local)
+pm ollama
+# or: pm ollama "your message"
+```
+
+---
+
+### Models (list available models)
 ```bash
 pm models
 pm models <filter>
 ```
 
-### Ollama
+### Pull (Ollama model)
 ```bash
-pm pull <model>
+pm pull llama3.2
 ```
 
-### Provider status
+### Status (provider status)
 ```bash
 pm status
 ```
 
-### Config
+---
+
+### Config commands
 ```bash
 pm config show
 pm config set <key> <value>
 pm config setup
 ```
 
-### Chat entrypoints
-```bash
-pm           # interactive chat
-pm chat      # interactive chat
-pm "<message>"  # one-shot
-```
+Common keys (depending on provider):
+- `provider`
+- `model`
+- `<provider>-key` (e.g., `openrouter-key`, `groq-key`, `google-key`, etc.)
 
-OpenRouter shortcut:
+---
+
+### OpenRouter shortcut
 ```bash
-pm or <model>
-pm -p openrouter -m <model> "<message>"
+pm or <openrouter-model>
+pm or deepseek/deepseek-r1:free
+pm -p openrouter -m "deepseek/deepseek-r1:free" "Hello"
 ```
 
 ---
 
-## Chat menu (slash commands)
+## 5) Chat menu + slash commands
 
-Inside interactive chat, type `/` then press **Enter** to open the menu.
+### Open the interactive menu
+In interactive chat, type `/` and press **Enter**.
 
-You can also use these slash commands directly:
-
+### Slash commands (quick reference)
 ```text
 /orm                  Open model switcher
 /upload <path>       Upload a file (image/pdf/docx/xlsx/zip/code...)
@@ -155,7 +178,7 @@ You can also use these slash commands directly:
 
 ---
 
-## Building from source (dev / contributors)
+## 6) Building from source (contributors)
 
 ```bash
 npm ci
@@ -165,10 +188,10 @@ node dist/index.js --help
 
 ---
 
-## Publish (maintainers)
+## 7) Publish (maintainers)
 
 The project is published automatically by GitHub Actions on tags `v*`.
 
 1. Bump version
-2. Create a tag `vX.Y.Z`
-3. Push the tag
+2. Create tag `vX.Y.Z`
+3. Push tag (publish workflow runs)
