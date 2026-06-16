@@ -17,7 +17,7 @@ Universal AI terminal CLI — Ollama, Groq, OpenRouter, Google Gemini, Kimi, Min
 ## 1) Install
 
 ```bash
-npm install -g pm-ai-cli
+npm install -g pm-ai-cli-publish
 ```
 
 Verify installation:
