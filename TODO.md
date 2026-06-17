@@ -1,12 +1,8 @@
-# pm-ai-cli release checklist
-
-- [x] Diagnose: banner printed twice / dist missing in local checkout
-- [x] Fix: prevent duplicate banner by removing extra `printCleanBanner()` calls
-- [x] Bump version to 1.0.4
-- [x] Create tag v1.0.4
-- [x] Push commits + tags to GitHub (publish workflow triggers on v*)
-- [ ] Update README.md professionally (correct package name, version, install steps, commands)
-- [ ] Commit + push README changes (create a new tag/publish if required)
-
-- [ ] Verify locally: `npm run build` and `node dist/index.js --help` after README update
-
+- [ ] Fix npm package name in package.json to `pm-ai-cli` (currently `pm-ai-cli-publish`)
+- [ ] Bump version (patch) for next publish (e.g. 1.0.1)
+- [ ] Update `src/index.ts` hardcoded `version("1.0.0"... )` to match package.json
+- [ ] Build: `npm run build`
+- [ ] Verify: `node dist/index.js --version` and `--help`
+- [ ] Verify packaging: `npm pack --dry-run` includes `dist/`
+- [ ] Create tag and push to trigger publish workflow: `git tag v<version>` and `git push --tags`
+- [ ] Verify on npm registry: `npm view pm-ai-cli versions --json` includes new version
