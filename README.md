@@ -3,9 +3,9 @@
 Universal AI terminal CLI — Ollama, Groq, OpenRouter, Google Gemini, Kimi, MiniMax, DeepSeek.
 
 ```text
-  ▄▄▄▄▄  ▄▄▄▄▀ ▄▄▄▄▄ ▄▄▄▄▀  ▄▄▄▄▄ ▄▄▄▄▀  ▄▄▄▄▄ ▄▄▄▄▀
+▄▄▄▄▄  ▄▄▄▄▀ ▄▄▄▄▄ ▄▄▄▄▀  ▄▄▄▄▄ ▄▄▄▄▀  ▄▄▄▄▄ ▄▄▄▄▀
  █████  ███    █████  ███   █████  ███   █████  ███
-  ▀▀▀▀▀  ▀▀▀    ▀▀▀▀▀  ▀▀▀    ▀▀▀▀▀  ▀▀▀   ▀▀▀▀▀  ▀▀▀
+  ▀▀▀▀▀  ▀▀▀    ▀▀▀▀▀  ▀▀    ▀▀▀▀▀  ▀▀▀   ▀▀▀▀  ▀▀▀
 ```
 
 > The CLI workflow is the same for all providers: **set config → run `pm`**.
