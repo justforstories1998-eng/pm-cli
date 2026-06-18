@@ -2,22 +2,13 @@
 
 Universal AI terminal CLI — Ollama, Groq, OpenRouter, Google Gemini, Kimi, MiniMax, DeepSeek.
 
-```js
-  const SHIFT_RIGHT = 5;
-
-  const l1 =
-    chalk.hex("#F87171")("██████╗ ███╗   ███╗      █████╗ ██╗") +
-    chalk.hex("#B45309")("  ▸  ") +
-    chalk.hex("#F59E0B")("PM-AI");
-
-  const l2 = chalk.hex("#7F1D1D")("██╔══██╗████╗ ████║     ██╔══██╗██║");
-  const l3 = chalk.hex("#B45309")("██████╔╝██╔████╔██║     ███████║██║");
-  const l4 = chalk.hex("#7F1D1D")("██╔═══╝ ██║╚██╔╝██║     ██╔══██║██║");
-  const l5 = chalk.hex("#B45309")("██║     ██║ ╚═╝ ██║     ██║  ██║██║");
-  const l6 = chalk.hex("#7F1D1D")("╚═╝     ╚═╝     ╚═╝     ╚═╝  ╚═╝╚═╝");
+```text
+  ▄▄▄▄▄  ▄▄▄▄▀ ▄▄▄▄▄ ▄▄▄▄▀  ▄▄▄▄▄ ▄▄▄▄▀  ▄▄▄▄▄ ▄▄▄▄▀
+ █████  ███    █████  ███   █████  ███   █████  ███
+  ▀▀▀▀▀  ▀▀▀    ▀▀▀▀▀  ▀▀▀    ▀▀▀▀▀  ▀▀▀   ▀▀▀▀▀  ▀▀▀
 ```
 
-> The CLI workflow is the same for all providers: **set config → run `pm`**.  
+> The CLI workflow is the same for all providers: **set config → run `pm`**.
 > If the logo doesn’t render, the CLI still works normally.
 
 ---
@@ -25,7 +16,7 @@ Universal AI terminal CLI — Ollama, Groq, OpenRouter, Google Gemini, Kimi, Min
 ## 1) Install
 
 ```bash
-npm install -g pm-ai-cli-publish
+npm install -g pm-ai-cli
 ```
 
 Verify installation:
