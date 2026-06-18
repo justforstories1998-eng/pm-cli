@@ -2,12 +2,20 @@
 
 Universal AI terminal CLI — Ollama, Groq, OpenRouter, Google Gemini, Kimi, MiniMax, DeepSeek.
 
-<div align="center">
-  <a href="https://github.com/justforstories1998-eng/pm-cli">
-    <img src="https://raw.githubusercontent.com/justforstories1998-eng/pm-cli/main/pm-ai-logo.svg" alt="PM AI" width="240" />
-  </a>
-  <pre>▀▄▀▄▀ PM AI CLI ▀▄▀▄▀</pre>
-</div>
+```js
+  const SHIFT_RIGHT = 5;
+
+  const l1 =
+    chalk.hex("#F87171")("██████╗ ███╗   ███╗      █████╗ ██╗") +
+    chalk.hex("#B45309")("  ▸  ") +
+    chalk.hex("#F59E0B")("PM-AI");
+
+  const l2 = chalk.hex("#7F1D1D")("██╔══██╗████╗ ████║     ██╔══██╗██║");
+  const l3 = chalk.hex("#B45309")("██████╔╝██╔████╔██║     ███████║██║");
+  const l4 = chalk.hex("#7F1D1D")("██╔═══╝ ██║╚██╔╝██║     ██╔══██║██║");
+  const l5 = chalk.hex("#B45309")("██║     ██║ ╚═╝ ██║     ██║  ██║██║");
+  const l6 = chalk.hex("#7F1D1D")("╚═╝     ╚═╝     ╚═╝     ╚═╝  ╚═╝╚═╝");
+```
 
 > The CLI workflow is the same for all providers: **set config → run `pm`**.  
 > If the logo doesn’t render, the CLI still works normally.
