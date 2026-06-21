@@ -2,11 +2,7 @@
 
 Universal AI terminal CLI — Ollama, Groq, OpenRouter, Google Gemini, Kimi, MiniMax, DeepSeek.
 
-```text
-▄▄▄▄▄  ▄▄▄▄▀ ▄▄▄▄▄ ▄▄▄▄▀  ▄▄▄▄▄ ▄▄▄▄▀  ▄▄▄▄▄ ▄▄▄▄▀
- █████  ███    █████  ███   █████  ███   █████  ███
-  ▀▀▀▀▀  ▀▀▀    ▀▀▀▀▀  ▀▀    ▀▀▀▀▀  ▀▀▀   ▀▀▀▀  ▀▀▀
-```
+![PM AI CLI Logo](https://i.postimg.cc/hGc1J4jT/Screenshot-2026-06-21-150331.png)
 
 > The CLI workflow is the same for all providers: **set config → run `pm`**.
 > If the logo doesn’t render, the CLI still works normally.
