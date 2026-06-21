@@ -43,6 +43,13 @@ export class SmartInput {
     if (this.lastRenderedLines > 0) clearLines(this.lastRenderedLines);
     for (const line of lines) process.stdout.write(line + "\n");
     this.lastRenderedLines = lines.length;
+
+    // Put the blinking cursor back on the actual input row (line index 1 in renderInputBox).
+    // After writing, the terminal cursor is positioned on the line AFTER the last printed line,
+    // so we move up (lines.length - 2) lines and reset column to 0.
+    const moveUp = Math.max(0, lines.length - 2);
+    if (moveUp > 0) process.stdout.write("\x1B[" + moveUp + "A");
+    process.stdout.write("\x1B[G");
   }
 
   private clearPrompt(): void {
