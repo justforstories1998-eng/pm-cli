@@ -1,8 +1,8 @@
 import readline from "readline";
-import { renderInputBox, stripAnsi } from "./display";
+import { renderInputBox } from "./display";
 
-const CURSOR_UP   = "\x1B[1A";
-const CLEAR_LINE  = "\x1B[2K";
+const CURSOR_UP = "\x1B[1A";
+const CLEAR_LINE = "\x1B[2K";
 const CURSOR_COL0 = "\x1B[G";
 const CURSOR_SHOW = "\x1B[?25h";
 
@@ -13,29 +13,85 @@ function clearLines(n: number): void {
   process.stdout.write(CURSOR_COL0);
 }
 
+type Mode = "input" | "menu" | "submit";
+
+
 export class SmartInput {
   private buffer = "";
   private lastRenderedLines = 0;
-  private active = false;
+
+  private mode: Mode = "input";
+  private paused = false;
+
+  private readonly rl: readline.Interface;
+  private readonly onSubmit: (input: string) => Promise<void>;
+  private readonly onMenu: () => Promise<void>;
+
   private keyHandler!: (chunk: Buffer) => void;
+  private attached = false;
 
   constructor(
-    private readonly rl: readline.Interface,
-    private readonly onSubmit: (input: string) => Promise<void>,
-    private readonly onMenu: () => Promise<void>
-  ) {}
+    rl: readline.Interface,
+    onSubmit: (input: string) => Promise<void>,
+    onMenu: () => Promise<void>
+  ) {
+    this.rl = rl;
+    this.onSubmit = onSubmit;
+    this.onMenu = onMenu;
+  }
 
   start(): void {
-    this.active = true;
-    this.buffer = "";
-    this.lastRenderedLines = 0;
+    // For the interactive mode we only support TTY.
+    // If not a TTY, fall back to readline "line" event (no raw mode / key-by-key UI).
+    if (!process.stdin.isTTY) {
+      this.rl.on("line", async (line) => {
+        if (this.mode !== "input") return;
+        const text = line.trim();
+        if (text) await this.onSubmit(text);
+      });
+      return;
+    }
+
+    if (this.attached) return;
+
     this.renderPrompt();
-    this.attachRawMode();
+
+    process.stdin.setRawMode(true);
+    process.stdin.resume();
+    process.stdin.setEncoding("utf8");
+
+    this.keyHandler = async (chunk: Buffer) => {
+      await this.handleKey(chunk.toString());
+    };
+
+    // Ensure we never attach multiple listeners (per session)
+    try {
+      (process.stdin as NodeJS.ReadStream).removeListener(
+        "data",
+        this.keyHandler
+      );
+    } catch (_) {}
+    (process.stdin as NodeJS.ReadStream).on("data", this.keyHandler);
+
+    this.attached = true;
   }
 
   stop(): void {
-    this.active = false;
-    this.detachRawMode();
+    this.mode = "input";
+    if (!process.stdin.isTTY) return;
+
+    try {
+      if (this.attached) {
+        (process.stdin as NodeJS.ReadStream).removeListener(
+          "data",
+          this.keyHandler
+        );
+        process.stdin.setRawMode(false);
+        process.stdin.pause();
+      }
+    } catch (_) {}
+
+    this.attached = false;
   }
 
   private renderPrompt(): void {
@@ -44,9 +100,7 @@ export class SmartInput {
     for (const line of lines) process.stdout.write(line + "\n");
     this.lastRenderedLines = lines.length;
 
-    // Put the blinking cursor back on the actual input row (line index 1 in renderInputBox).
-    // After writing, the terminal cursor is positioned on the line AFTER the last printed line,
-    // so we move up (lines.length - 2) lines and reset column to 0.
+    // Cursor positioning: move back up to the input row.
     const moveUp = Math.max(0, lines.length - 2);
     if (moveUp > 0) process.stdout.write("\x1B[" + moveUp + "A");
     process.stdout.write("\x1B[G");
@@ -59,37 +113,12 @@ export class SmartInput {
     }
   }
 
-  private attachRawMode(): void {
-    if (!process.stdin.isTTY) {
-      this.rl.on("line", async (line) => {
-        if (!this.active) return;
-        await this.handleSubmit(line.trim());
-      });
-      return;
-    }
-
-    process.stdin.setRawMode(true);
-    process.stdin.resume();
-    process.stdin.setEncoding("utf8");
-
-    this.keyHandler = async (chunk: Buffer) => {
-      if (!this.active) return;
-      await this.handleKey(chunk.toString());
-    };
-
-    (process.stdin as NodeJS.ReadStream).on("data", this.keyHandler);
-  }
-
-  private detachRawMode(): void {
-    if (!process.stdin.isTTY) return;
-    try {
-      (process.stdin as NodeJS.ReadStream).removeListener("data", this.keyHandler);
-      process.stdin.setRawMode(false);
-      process.stdin.pause();
-    } catch (_) {}
-  }
-
   private async handleKey(key: string): Promise<void> {
+    if (this.paused) return;
+
+    // Never process keys while in menu/submit.
+    if (this.mode !== "input") return;
+
     // Ctrl+C
     if (key === "\x03") {
       process.stdout.write(CURSOR_SHOW);
@@ -105,17 +134,20 @@ export class SmartInput {
 
     // Enter
     if (key === "\r" || key === "\n") {
-      if (this.buffer === "/") {
-        this.clearPrompt();
-        await this.openMenu();
-        return;
-      }
       const text = this.buffer.trim();
+      // Always reset input buffer immediately to avoid re-submits from stacked UI events.
       this.buffer = "";
-      if (text) {
-        this.clearPrompt();
-        await this.handleSubmit(text);
-      } else {
+
+      // Re-render once empty (so UI doesn't stack while submit is running)
+      this.renderPrompt();
+
+      this.mode = "submit";
+      this.paused = true; // stop SmartInput while streaming/submit runs
+      try {
+        if (text) await this.onSubmit(text);
+      } finally {
+        this.paused = false;
+        this.mode = "input";
         this.renderPrompt();
       }
       return;
@@ -135,42 +167,29 @@ export class SmartInput {
       return;
     }
 
-    // Arrow keys — ignore (reserved for menus)
+    // Arrow keys — ignore (menus handle arrow keys internally)
     if (key.startsWith("\x1B[")) return;
 
     // Printable characters
     if (key.length >= 1 && key >= " ") {
+      // UX: typing "/" as the first character opens the menu immediately.
+      if (key === "/" && this.buffer === "") {
+        this.clearPrompt();
+        this.mode = "menu";
+        this.paused = true; // stop SmartInput from listening while menu owns stdin
+        try {
+          await this.onMenu();
+        } finally {
+          this.paused = false;
+          this.mode = "input";
+          this.buffer = "";
+          this.renderPrompt();
+        }
+        return;
+      }
+
       this.buffer += key;
       this.renderPrompt();
-      return;
-    }
-  }
-
-  private async handleSubmit(text: string): Promise<void> {
-    this.detachRawMode();
-    try {
-      await this.onSubmit(text);
-    } finally {
-      if (this.active) {
-        this.buffer = "";
-        this.lastRenderedLines = 0;
-        this.renderPrompt();
-        this.attachRawMode();
-      }
-    }
-  }
-
-  private async openMenu(): Promise<void> {
-    this.detachRawMode();
-    try {
-      await this.onMenu();
-    } finally {
-      if (this.active) {
-        this.buffer = "";
-        this.lastRenderedLines = 0;
-        this.renderPrompt();
-        this.attachRawMode();
-      }
     }
   }
 }

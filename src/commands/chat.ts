@@ -142,8 +142,15 @@ export async function startChat(
   }
 
   if (currentProvider === "openrouter") {
-    const ok = await ensureOpenRouterKey();
-    if (!ok) return;
+    const isFreeOpenRouterModel =
+      (currentModel || "").toString().trim().endsWith(":free");
+
+    // Only require an OpenRouter key for non-free models
+    if (!isFreeOpenRouterModel) {
+      const ok = await ensureOpenRouterKey();
+      if (!ok) return;
+    }
+
     if (!options.model) currentModel = getLastOpenRouterModel();
   }
 
